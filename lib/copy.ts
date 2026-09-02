@@ -1,11 +1,3 @@
-type TeamSlot = {
-  name: string;
-  role: string;
-  initials: string;
-  placeholder: boolean;
-  photo?: string;
-};
-
 export const copy = {
   brand: {
     name: "Yuzzy Visa Support",
@@ -28,8 +20,8 @@ export const copy = {
     imageBadge: "USCIS-aligned evidence, not legal advice.",
     stats: [
       { label: "Visa Categories", value: "3" },
-      { label: "Profiles Built", placeholder: "[NEEDS INPUT]" },
-      { label: "Countries", placeholder: "[NEEDS INPUT]" },
+      { label: "Profiles Built", value: "110+" },
+      { label: "Countries Served", value: "10+" },
     ],
   },
   trustChips: [
@@ -109,43 +101,102 @@ export const copy = {
       "We focus on strengthening academic impact, professional recognition, and global visibility, so our clients meet key USCIS criteria before submitting their petition.",
       "Our approach centers on genuine, well documented achievement. We do not just assist with applications, we help you build a profile that reflects real recognition in your field.",
     ],
-    founderHeading: "Meet Yuzzy",
-    founderBioPlaceholder:
-      "[NEEDS INPUT: a short first person bio. Something like \"I'm Yuzzy, an academic research consultant and immigration profile specialist.\"]",
-    founderPhoto: undefined as string | undefined,
+    founderHeading: "Meet the founder",
+    founderName: "Yusuf Adebayo",
+    founderRole: "Founder & Lead Consultant",
+    founderPhoto: "/brand/team/yusuf-adebayo.jpg",
+    founderBio: [
+      "Yusuf Adebayo is the founder of Yuzzy Visa Support, where he focuses on strategic profile building for researchers, academics, engineers, executives, and global professionals pursuing EB1A, O1, and NIW pathways.",
+      "His background combines software development, research support, technical writing, and professional profile development. He has experience in web and mobile application development and has also worked in teaching and technical education.",
+      "Through Yuzzy Visa Support, Yusuf works with professionals to strengthen areas such as research publications, citations, peer review, professional memberships, recommendation letters, conference leadership, awards, and professional visibility.",
+    ],
   },
   team: {
-    heading: "Meet the team",
-    slots: [
-      { name: "Yuzzy", role: "Founder", initials: "Y", placeholder: false },
-      {
-        name: "[NEEDS INPUT: teammate name]",
-        role: "[NEEDS INPUT: role]",
-        initials: "?",
-        placeholder: true,
-      },
-      {
-        name: "[NEEDS INPUT: teammate name]",
-        role: "[NEEDS INPUT: role]",
-        initials: "?",
-        placeholder: true,
-      },
-      {
-        name: "[NEEDS INPUT: teammate name]",
-        role: "[NEEDS INPUT: role]",
-        initials: "?",
-        placeholder: true,
-      },
-    ] as TeamSlot[],
+    heading: "Meet the founder",
   },
   reviews: {
     heading: "What Our Clients Say",
     trustLine: "Trusted by professionals in tech, research, and healthcare",
-    caseTypes: [
-      "Software Engineer, EB1A",
-      "Data Scientist, O1",
-      "Researcher, NIW",
-      "Physician, NIW",
+    viewerHint: "Swipe or use the arrows to browse. Select any review to read it in full.",
+    items: [
+      {
+        src: "/reviews/gauravw2026-review.jpeg",
+        width: 943,
+        height: 433,
+        alt: "Client review screenshot from gauravw2026 describing peer review invitation support.",
+      },
+      {
+        src: "/reviews/varun961-review.jpeg",
+        width: 914,
+        height: 329,
+        alt: "Client review screenshot from varun961 describing professional and responsive service.",
+      },
+      {
+        src: "/reviews/ppmm14-review.jpeg",
+        width: 907,
+        height: 303,
+        alt: "Client review screenshot from ppmm14 describing detailed scholarly support.",
+      },
+      {
+        src: "/reviews/helloswapnil-review.jpeg",
+        width: 909,
+        height: 393,
+        alt: "Client review screenshot from helloswapnil describing IEEE reference support.",
+      },
+      {
+        src: "/reviews/get2pp-review.jpeg",
+        width: 931,
+        height: 379,
+        alt: "Client review screenshot from get2pp describing timely delivery and communication.",
+      },
+      {
+        src: "/reviews/client-praise-review.jpeg",
+        width: 1245,
+        height: 366,
+        alt: "WhatsApp feedback screenshot praising the service's speed, knowledge, and commitment.",
+      },
+      {
+        src: "/reviews/whatsapp-reference-review.jpeg",
+        width: 1262,
+        height: 836,
+        alt: "WhatsApp conversation screenshot about completed professional references.",
+      },
+      {
+        src: "/reviews/whatsapp-services-review.jpeg",
+        width: 960,
+        height: 1280,
+        alt: "WhatsApp conversation screenshot about profile building services.",
+      },
+      {
+        src: "/reviews/whatsapp-services-review-duplicate.jpeg",
+        width: 960,
+        height: 1280,
+        alt: "Additional WhatsApp conversation screenshot about profile building services.",
+      },
+      {
+        src: "/reviews/whatsapp-payment-review.jpeg",
+        width: 814,
+        height: 1280,
+        alt: "WhatsApp conversation screenshot about a payment and peer review support.",
+      },
+      {
+        src: "/reviews/whatsapp-peer-reviews-1.jpeg",
+        width: 540,
+        height: 1170,
+        alt: "WhatsApp conversation screenshot confirming two peer review assignments.",
+      },
+      {
+        src: "/reviews/whatsapp-peer-reviews-2.jpeg",
+        width: 540,
+        height: 1108,
+        alt: "Additional WhatsApp conversation screenshot confirming peer review assignments.",
+      },
+      {
+        src: "/reviews/ppmm14-review-duplicate.jpeg",
+        width: 907,
+        height: 303,
+        alt: "Additional client review screenshot from ppmm14 describing detailed scholarly support.",
+      },
     ],
   },
   faqs: {
@@ -167,9 +218,9 @@ export const copy = {
         placeholder: false,
       },
       {
-        q: "How long does the profile building process take?",
-        a: "[NEEDS INPUT: real estimate, e.g. typically X to Y months depending on your starting profile and target visa category]",
-        placeholder: true,
+        q: "How long does profile building take?",
+        a: "Every profile is different. Depending on your current profile, goals, field, and the areas requiring development, profile-building projects can take anywhere from several weeks to several months. During the initial assessment, we identify your strengths, gaps, priorities, and recommended development timeline.",
+        placeholder: false,
       },
       {
         q: "What visa categories do you support?",
@@ -186,10 +237,9 @@ export const copy = {
   contact: {
     heading: "Get in Touch",
     body: "Have questions about your profile or which visa category fits you? Reach out and we'll get back to you.",
-    emailPlaceholder: "[NEEDS INPUT: publishable email]",
-    phonePlaceholder: "[NEEDS INPUT: publishable phone]",
-    email: undefined as string | undefined,
-    phone: undefined as string | undefined,
+    email: "yusufayomide267@gmail.com",
+    phone: "+1 (365) 530-7062",
+    phoneHref: "tel:+13655307062",
     visaOptions: [
       { value: "EB1A", label: "EB1A" },
       { value: "O1", label: "O1" },
@@ -212,8 +262,7 @@ export const copy = {
     ctaHeading: "Get started",
     ctaLead:
       "Book a free consultation and we'll walk through your background.",
-    linkedin: undefined as string | undefined,
-    linkedinPlaceholder: "[NEEDS INPUT]",
+    linkedin: "https://www.linkedin.com/in/yuzzydaiz/",
     disclaimer:
       "Yuzzy Visa Support provides informational and educational services only. We are not attorneys and do not offer legal advice or representation before U.S. immigration authorities. For legal guidance, consult a licensed immigration attorney. We do not guarantee the accuracy of the information provided or the outcome of any petition or application.",
   },

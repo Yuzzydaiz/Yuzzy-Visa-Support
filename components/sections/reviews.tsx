@@ -1,5 +1,5 @@
 import { Section } from "@/components/layout/section";
-import { Badge } from "@/components/ui/badge";
+import { ReviewGallery } from "@/components/review-gallery";
 import { copy } from "@/lib/copy";
 
 export function Reviews() {
@@ -9,15 +9,8 @@ export function Reviews() {
         {copy.reviews.heading}
       </h2>
       <p className="mt-4 text-lg text-muted-foreground">{copy.reviews.trustLine}</p>
-      <ul className="mt-8 flex flex-wrap gap-2">
-        {copy.reviews.caseTypes.map((item) => (
-          <li key={item}>
-            <Badge variant="outline" className="px-3 py-1 text-sm">
-              {item}
-            </Badge>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-2 text-sm text-muted-foreground">{copy.reviews.viewerHint}</p>
+      <ReviewGallery reviews={copy.reviews.items} />
     </Section>
   );
 }

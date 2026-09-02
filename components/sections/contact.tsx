@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useForm, ValidationError } from "@formspree/react";
 
-import { api } from "@/convex/_generated/api";
-import { NeedsInput } from "@/components/needs-input";
 import { Section } from "@/components/layout/section";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { copy } from "@/lib/copy";
+import { getFormspreeFormId } from "@/lib/site";
 
 type VisaCategory = "EB1A" | "O1" | "EB2_NIW";
 
@@ -40,119 +39,121 @@ export function Contact() {
             <div>
               <dt className="text-sm font-medium">Email</dt>
               <dd className="mt-1">
-                <NeedsInput>{copy.contact.emailPlaceholder}</NeedsInput>
+                <a
+                  href={`mailto:${copy.contact.email}`}
+                  className="font-medium text-brand-navy underline decoration-brand-red/40 underline-offset-4 transition-colors hover:text-brand-red"
+                >
+                  {copy.contact.email}
+                </a>
               </dd>
             </div>
             <div>
               <dt className="text-sm font-medium">Phone</dt>
               <dd className="mt-1">
-                <NeedsInput>{copy.contact.phonePlaceholder}</NeedsInput>
+                <a
+                  href={copy.contact.phoneHref}
+                  className="font-medium text-brand-navy underline decoration-brand-red/40 underline-offset-4 transition-colors hover:text-brand-red"
+                >
+                  {copy.contact.phone}
+                </a>
               </dd>
             </div>
           </dl>
         </div>
-        {process.env.NEXT_PUBLIC_CONVEX_URL ? (
-          <ContactForm />
-        ) : (
-          <p className="rounded-xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-            The contact form connects once Convex is configured.
-          </p>
-        )}
+        <ContactForm />
       </div>
     </Section>
   );
 }
 
 function ContactForm() {
-  const submit = useMutation(api.contact.submit);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [state, handleSubmit] = useForm(getFormspreeFormId(), {
+    data: {
+      sourcePage: () =>
+        typeof window === "undefined" ? "/" : window.location.pathname,
+    },
+  });
   const [visa, setVisa] = useState<VisaCategory | null>(null);
-  const [message, setMessage] = useState("");
-  const [website, setWebsite] = useState("");
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [visaError, setVisaError] = useState("");
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.name = "Name is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      nextErrors.email = "Enter a valid email.";
-    }
-    if (!visa) nextErrors.visa = "Choose a visa category.";
-    if (!message.trim()) nextErrors.message = "Message is required.";
-    setFieldErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      setStatus("idle");
-      return;
-    }
-
-    setPending(true);
-    setStatus("idle");
-    try {
-      await submit({
-        name: name.trim(),
-        email: email.trim(),
-        visaCategory: visa as VisaCategory,
-        message: message.trim(),
-        website,
-        sourcePage:
-          typeof window === "undefined" ? undefined : window.location.pathname,
-        userAgent:
-          typeof navigator === "undefined" ? undefined : navigator.userAgent,
-      });
-      setStatus("success");
-      setName("");
-      setEmail("");
-      setVisa(null);
-      setMessage("");
-      setWebsite("");
-    } catch {
-      setStatus("error");
-    } finally {
-      setPending(false);
-    }
+  if (state.succeeded) {
+    return (
+      <p
+        className="rounded-xl border border-border bg-card p-6 text-sm text-foreground"
+        role="status"
+      >
+        {copy.contact.success}
+      </p>
+    );
   }
 
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (!visa) {
+      event.preventDefault();
+      setVisaError("Choose a visa category.");
+      return;
+    }
+    setVisaError("");
+    await handleSubmit(event);
+  }
+
+  const formError = state.errors && !state.succeeded;
+
   return (
-    <form onSubmit={onSubmit} noValidate className="rounded-xl border border-border bg-card p-6">
+    <form onSubmit={onSubmit} className="rounded-xl border border-border bg-card p-6">
       <FieldGroup>
-        <Field data-invalid={!!fieldErrors.name || undefined}>
+        <input type="hidden" name="_subject" value="Yuzzy Visa Support contact" />
+        <input type="hidden" name="visaCategory" value={visa ?? ""} />
+        <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden>
+          <label htmlFor="contact-gotcha">Website</label>
+          <input
+            id="contact-gotcha"
+            type="text"
+            name="_gotcha"
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </div>
+
+        <Field>
           <FieldLabel htmlFor="contact-name">Name</FieldLabel>
           <Input
             id="contact-name"
             name="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
             autoComplete="name"
             required
-            aria-invalid={!!fieldErrors.name}
           />
-          <FieldError>{fieldErrors.name}</FieldError>
+          <ValidationError
+            field="name"
+            errors={state.errors}
+            className="text-sm text-destructive"
+          />
         </Field>
-        <Field data-invalid={!!fieldErrors.email || undefined}>
+        <Field>
           <FieldLabel htmlFor="contact-email">Email</FieldLabel>
           <Input
             id="contact-email"
             name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
-            aria-invalid={!!fieldErrors.email}
           />
-          <FieldError>{fieldErrors.email}</FieldError>
+          <ValidationError
+            field="email"
+            errors={state.errors}
+            className="text-sm text-destructive"
+          />
         </Field>
-        <Field data-invalid={!!fieldErrors.visa || undefined}>
+        <Field data-invalid={visaError ? true : undefined}>
           <FieldLabel>Visa category</FieldLabel>
           <Select
             value={visa ?? null}
-            onValueChange={(value) => setVisa(value as VisaCategory)}
+            onValueChange={(value) => {
+              setVisa(value as VisaCategory);
+              setVisaError("");
+            }}
           >
-            <SelectTrigger className="w-full" aria-invalid={!!fieldErrors.visa}>
+            <SelectTrigger className="w-full" aria-invalid={!!visaError}>
               <SelectValue placeholder="Choose a category" />
             </SelectTrigger>
             <SelectContent>
@@ -165,44 +166,34 @@ function ContactForm() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <FieldError>{fieldErrors.visa}</FieldError>
+          <FieldError>{visaError}</FieldError>
         </Field>
-        <Field data-invalid={!!fieldErrors.message || undefined}>
+        <Field>
           <FieldLabel htmlFor="contact-message">Message</FieldLabel>
           <Textarea
             id="contact-message"
             name="message"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
             rows={5}
             required
-            aria-invalid={!!fieldErrors.message}
           />
-          <FieldError>{fieldErrors.message}</FieldError>
+          <ValidationError
+            field="message"
+            errors={state.errors}
+            className="text-sm text-destructive"
+          />
         </Field>
-        <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden>
-          <label htmlFor="contact-website">Website</label>
-          <input
-            id="contact-website"
-            name="website"
-            tabIndex={-1}
-            autoComplete="off"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-          />
-        </div>
-        <Button type="submit" disabled={pending} className="h-11">
-          {pending ? "Sending…" : "Send message"}
+        <Button type="submit" disabled={state.submitting} className="h-11">
+          {state.submitting ? "Sending…" : "Send message"}
         </Button>
         <p className="sr-only" aria-live="polite">
-          {status === "success" ? copy.contact.success : ""}
-          {status === "error" ? copy.contact.error : ""}
+          {state.succeeded ? copy.contact.success : ""}
+          {formError ? copy.contact.error : ""}
         </p>
-        {status === "success" ? (
-          <p className="text-sm text-foreground">{copy.contact.success}</p>
-        ) : null}
-        {status === "error" ? (
-          <p className="text-sm text-destructive">{copy.contact.error}</p>
+        {formError ? (
+          <ValidationError
+            errors={state.errors}
+            className="text-sm text-destructive"
+          />
         ) : null}
       </FieldGroup>
     </form>

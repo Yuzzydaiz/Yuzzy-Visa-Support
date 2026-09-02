@@ -1,5 +1,4 @@
 import { Section } from "@/components/layout/section";
-import { NeedsInput } from "@/components/needs-input";
 import {
   Accordion,
   AccordionContent,
@@ -19,11 +18,7 @@ export function Faqs() {
           <AccordionItem key={item.q} value={item.q}>
             <AccordionTrigger className="text-base">{item.q}</AccordionTrigger>
             <AccordionContent>
-              {item.placeholder ? (
-                <NeedsInput>{item.a}</NeedsInput>
-              ) : (
-                <p className="text-muted-foreground">{item.a}</p>
-              )}
+              <p className="text-muted-foreground">{item.a}</p>
             </AccordionContent>
           </AccordionItem>
         ))}

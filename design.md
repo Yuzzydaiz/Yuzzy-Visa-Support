@@ -21,9 +21,9 @@ Shared chrome in `app/(marketing)/layout.tsx`. Home composes section modules in 
 ## Component & usage rules (do's and don'ts)
 
 - Red is for primary CTAs and thin 3px card rails only, never for decorative washes or fake stats. Soft red/navy blobs behind the hero are atmosphere, not a wash over copy.
-- Service, how-we-work, founder bio, and team cards use 16px radius, white fill, and a soft navy shadow. Service, how-we-work, and team cards also get a slight hover lift. Service cards also get a 3px navy/red top rail; the first may use a 6% navy tint and a “Start here” pill — not a popularity claim. How-we-work uses large navy numbered badges on a dashed connecting path (horizontal on `md+`, vertical on small screens), not red labels. About intro is `70ch` / `leading-[1.8]`. Founder is a two-column bio card (avatar + text). Team portraits are real photos when `photo` is set, navy initials otherwise — never generated faces. FAQ cards stay hairline. The hero photo may use a soft navy shadow, 18px radius, and a bottom gradient overlay.
+- About intro is `70ch` / `leading-[1.8]`. The founder is a single centered spotlight (large circular headshot, name, role pill, bio) — not a four-person team grid. Hero stats may show real figures Yusuf provided (3 visa categories, 110+ profiles, 10+ countries). LinkedIn and Calendly are live. Email and phone are published contact links. FAQ cards stay hairline. The hero photo may use a soft navy shadow, 18px radius, and a bottom gradient overlay.
 - The hero Book button may use rounded-xl, a light shadow, and a stronger hover. Other buttons stay compact.
-- Placeholders keep the `[NEEDS INPUT]` marker, a dashed border, and a muted italic voice. Never a large numeral styled as a stat. The hero may show a real `3` for visa categories (EB1A, O1, NIW); missing counts stay placeholder chips in the stat row. Footer email, phone, and LinkedIn stay `NeedsInput` until real values are set — never invented `mailto`, `tel`, or social URLs. No address until copy provides one.
+- Service and how-we-work cards use 16px radius, white fill, and a soft navy shadow with a slight hover lift. Service cards also get a 3px navy/red top rail. How-we-work uses large navy numbered badges on a dashed connecting path.
 - Do not show IEEE, ACM, Springer, or Elsevier logos.
 - Do not invent testimonials, stars, or approval rates.
 

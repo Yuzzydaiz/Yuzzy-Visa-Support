@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { BookCta } from "@/components/book-cta";
-import { NeedsInput } from "@/components/needs-input";
 import { copy } from "@/lib/copy";
 import { navItems } from "@/lib/navigation";
 
@@ -47,22 +46,15 @@ export function SiteFooter() {
               {copy.brand.tagline}
             </p>
             <div className="mt-4 flex items-center gap-2">
-              {copy.footer.linkedin ? (
-                <a
-                  href={copy.footer.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-navy/70 transition-colors hover:text-brand-navy"
-                >
-                  <LinkedInMark className="size-5" />
-                  <span className="sr-only">LinkedIn</span>
-                </a>
-              ) : (
-                <>
-                  <LinkedInMark className="size-5 text-brand-navy/70" />
-                  <NeedsInput>{copy.footer.linkedinPlaceholder}</NeedsInput>
-                </>
-              )}
+              <a
+                href={copy.footer.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-navy/70 transition-colors hover:text-brand-navy"
+              >
+                <LinkedInMark className="size-5" />
+                <span className="sr-only">LinkedIn</span>
+              </a>
             </div>
           </div>
 
@@ -95,16 +87,12 @@ export function SiteFooter() {
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                {copy.contact.email ? (
-                  <a
-                    href={`mailto:${copy.contact.email}`}
-                    className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
-                  >
-                    {copy.contact.email}
-                  </a>
-                ) : (
-                  <NeedsInput>{copy.contact.emailPlaceholder}</NeedsInput>
-                )}
+                <a
+                  href={`mailto:${copy.contact.email}`}
+                  className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
+                >
+                  {copy.contact.email}
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <PhoneIcon
@@ -112,16 +100,12 @@ export function SiteFooter() {
                   strokeWidth={1.75}
                   aria-hidden
                 />
-                {copy.contact.phone ? (
-                  <a
-                    href={`tel:${copy.contact.phone.replace(/\s+/g, "")}`}
-                    className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
-                  >
-                    {copy.contact.phone}
-                  </a>
-                ) : (
-                  <NeedsInput>{copy.contact.phonePlaceholder}</NeedsInput>
-                )}
+                <a
+                  href={copy.contact.phoneHref}
+                  className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
+                >
+                  {copy.contact.phone}
+                </a>
               </li>
             </ul>
           </div>

@@ -2,7 +2,6 @@ import { CheckIcon } from "lucide-react";
 import Image from "next/image";
 
 import { BookCta } from "@/components/book-cta";
-import { NeedsInput } from "@/components/needs-input";
 import { copy } from "@/lib/copy";
 
 export function Hero() {
@@ -45,11 +44,7 @@ export function Hero() {
                     {stat.label}
                   </dt>
                   <dd className="font-heading text-lg font-semibold text-brand-navy tabular-nums">
-                    {"placeholder" in stat ? (
-                      <NeedsInput>{stat.placeholder}</NeedsInput>
-                    ) : (
-                      stat.value
-                    )}
+                    {stat.value}
                   </dd>
                 </div>
               ))}

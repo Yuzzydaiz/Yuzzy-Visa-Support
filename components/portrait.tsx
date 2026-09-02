@@ -7,11 +7,13 @@ export function Portrait({
   alt,
   initials,
   className,
+  sizes = "176px",
 }: {
   src?: string;
   alt: string;
   initials: string;
   className?: string;
+  sizes?: string;
 }) {
   return (
     <span
@@ -21,7 +23,7 @@ export function Portrait({
       )}
     >
       {src ? (
-        <Image src={src} alt={alt} fill className="object-cover" sizes="112px" />
+        <Image src={src} alt={alt} fill className="object-cover object-[center_20%]" sizes={sizes} />
       ) : (
         <span aria-hidden>{initials}</span>
       )}
