@@ -1,7 +1,14 @@
+"use client";
+
+import { useState } from "react";
+
 import { Portrait } from "@/components/portrait";
 import { copy } from "@/lib/copy";
 
 export function Team() {
+  const [expanded, setExpanded] = useState(false);
+  const [preview, ...rest] = copy.about.founderBio;
+
   return (
     <div className="mt-16 md:mt-20">
       <h3 className="text-center font-heading text-2xl font-semibold md:text-3xl">
@@ -22,9 +29,20 @@ export function Team() {
           {copy.about.founderRole}
         </span>
         <div className="mt-6 flex max-w-[62ch] flex-col gap-4 text-left text-base leading-[1.8] text-muted-foreground">
-          {copy.about.founderBio.map((p) => (
-            <p key={p}>{p}</p>
+          <p>{preview}</p>
+          {rest.map((p) => (
+            <p key={p} hidden={!expanded}>
+              {p}
+            </p>
           ))}
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+            className="self-start text-sm font-medium text-brand-navy underline decoration-brand-navy/25 underline-offset-4 transition-colors hover:text-brand-red hover:decoration-brand-red/40"
+          >
+            {expanded ? "Read less" : "Read more"}
+          </button>
         </div>
         <a
           href={copy.footer.linkedin}
