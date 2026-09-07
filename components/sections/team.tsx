@@ -17,7 +17,7 @@ export function Team() {
             src={copy.about.founderPhoto}
             alt={`${copy.about.founderName}, ${copy.about.founderRole}`}
             fill
-            className="object-cover object-[center_20%] transition-transform duration-700 hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
+            className="object-cover object-center transition-transform duration-700 hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
             sizes="(min-width: 768px) 40vw, 100vw"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-navy/10 via-transparent to-transparent" />
