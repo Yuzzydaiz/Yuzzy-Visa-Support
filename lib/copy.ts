@@ -162,16 +162,10 @@ export const copy = {
         alt: "WhatsApp conversation screenshot about completed professional references.",
       },
       {
-        src: "/reviews/whatsapp-services-review.jpeg",
-        width: 960,
-        height: 1280,
-        alt: "WhatsApp conversation screenshot about profile building services.",
-      },
-      {
         src: "/reviews/whatsapp-services-review-duplicate.jpeg",
         width: 960,
         height: 1280,
-        alt: "Additional WhatsApp conversation screenshot about profile building services.",
+        alt: "WhatsApp conversation screenshot about profile building services.",
       },
       {
         src: "/reviews/whatsapp-payment-review.jpeg",
@@ -180,22 +174,10 @@ export const copy = {
         alt: "WhatsApp conversation screenshot about a payment and peer review support.",
       },
       {
-        src: "/reviews/whatsapp-peer-reviews-1.jpeg",
-        width: 540,
-        height: 1170,
-        alt: "WhatsApp conversation screenshot confirming two peer review assignments.",
-      },
-      {
         src: "/reviews/whatsapp-peer-reviews-2.jpeg",
         width: 540,
         height: 1108,
-        alt: "Additional WhatsApp conversation screenshot confirming peer review assignments.",
-      },
-      {
-        src: "/reviews/ppmm14-review-duplicate.jpeg",
-        width: 907,
-        height: 303,
-        alt: "Additional client review screenshot from ppmm14 describing detailed scholarly support.",
+        alt: "WhatsApp conversation screenshot confirming peer review assignments.",
       },
     ],
   },
