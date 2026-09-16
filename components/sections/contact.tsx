@@ -49,13 +49,20 @@ export function Contact() {
             </div>
             <div>
               <dt className="text-sm font-medium">Phone</dt>
-              <dd className="mt-1">
-                <a
-                  href={copy.contact.phoneHref}
-                  className="font-medium text-brand-navy underline decoration-brand-red/40 underline-offset-4 transition-colors hover:text-brand-red"
-                >
-                  {copy.contact.phone}
-                </a>
+              <dd className="mt-1 flex flex-col gap-3">
+                {copy.contact.phones.map((phone) => (
+                  <p key={phone.href} className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">
+                      {phone.label}
+                    </span>
+                    <a
+                      href={phone.href}
+                      className="font-medium text-brand-navy underline decoration-brand-red/40 underline-offset-4 transition-colors hover:text-brand-red"
+                    >
+                      {phone.display}
+                    </a>
+                  </p>
+                ))}
               </dd>
             </div>
           </dl>

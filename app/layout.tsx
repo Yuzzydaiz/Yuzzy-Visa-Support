@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 
 import { ConvexClientProvider } from "@/components/convex-client-provider";
+import { WhatsAppButton } from "@/components/layout/whatsapp-button";
 import { copy } from "@/lib/copy";
 import { getSiteUrl } from "@/lib/site";
 import "./globals.css";
@@ -56,7 +57,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ConvexClientProvider>
+          {children}
+          <WhatsAppButton />
+        </ConvexClientProvider>
       </body>
     </html>
   );

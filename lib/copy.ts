@@ -238,8 +238,25 @@ export const copy = {
     heading: "Get in Touch",
     body: "Have questions about your profile or which visa category fits you? Reach out and we'll get back to you.",
     email: "yusufayomide267@gmail.com",
-    phone: "+1 (365) 530-7062",
-    phoneHref: "tel:+13655307062",
+    phones: [
+      {
+        label: "United States",
+        display: "+1 (614) 720-9512",
+        href: "tel:+16147209512",
+      },
+      {
+        label: "Nigeria",
+        display: "+234 907 283 7051",
+        href: "tel:+2349072837051",
+      },
+    ],
+    whatsapp: {
+      href: "https://wa.me/16147209512",
+      launcherLabel: "Open WhatsApp chat",
+      heading: "Chat with us on WhatsApp",
+      body: "Questions about your profile or visa category? Message the team on WhatsApp.",
+      cta: "Contact us on WhatsApp",
+    },
     visaOptions: [
       { value: "EB1A", label: "EB1A" },
       { value: "O1", label: "O1" },
