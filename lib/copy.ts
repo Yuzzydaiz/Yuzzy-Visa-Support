@@ -17,6 +17,7 @@ export const copy = {
     subheadline:
       "We help researchers, engineers, physicians, and executives strengthen their academic impact, professional recognition, and global visibility, so your EB1A, O1, or NIW petition is strong before you ever file.",
     cta: "Book a Free Consultation",
+    researchCta: "Generate your research in minutes",
     imageBadge: "USCIS-aligned evidence, not legal advice.",
     stats: [
       { label: "Visa Categories", value: "3" },
@@ -33,6 +34,56 @@ export const copy = {
     "physicians",
     "executives",
   ],
+  research: {
+    sectionId: "research-assistant",
+    eyebrow: "Research drafts",
+    heading: "An evidence-grounded paper draft, when you need one",
+    intro:
+      "Give a title, a focus, and the sources you already trust. We match those sources, collect payment, then draft section by section. You edit the result and download Word or PDF.",
+    disclosure:
+      "This is an AI-assisted draft. It is not a finished original study, a journal submission, or a guarantee of publication.",
+    cta: "Generate your research in minutes",
+    facts: [
+      {
+        title: "Verified sources",
+        body: "DOI, URL, or citation text is matched to Crossref and OpenAlex. Unverified items stay out of the citation list.",
+      },
+      {
+        title: "Editable draft",
+        body: "You keep the manuscript. Change wording, citation style, and regenerate a section within a small quota.",
+      },
+      {
+        title: "DOCX and PDF",
+        body: "Download from the saved paper, not from a screenshot of the page.",
+      },
+    ],
+    wizard: {
+      title: "Research paper draft",
+      lead: "Three steps before payment: the paper, the sources, then a review of length and price.",
+      exploreNotice:
+        "Explore mode is on. You can open later steps with empty fields. Checkout will still require a complete draft.",
+      paymentSoon:
+        "You will see a one-time recovery token, then we send you to Bachs checkout. Generation starts only after payment is confirmed.",
+      privacyLink: "How we handle draft data",
+    },
+    privacy: {
+      title: "Research draft privacy",
+      intro:
+        "This notice covers the paid research-draft tool only. It is not legal advice.",
+      stored:
+        "If you check out, we store your email, paper title and focus, author names, reference list, generated draft, payment identifiers from Bachs, and a hashed recovery token. We do not store card numbers.",
+      processors:
+        "Drafting uses OpenAI. Payments use Bachs. Data is stored in MongoDB. Source matching uses Crossref and optionally OpenAlex. Recovery email is sent only if EMAIL_API_KEY is configured.",
+      retention:
+        "We keep research papers and related orders for 12 months after the last update, then they may be deleted. You can ask us to delete a draft sooner.",
+      pricing:
+        "The charge is calculated on the server: ₦250 per page, with a ₦2,500 minimum (10 pages at the default rate). The amount shown at checkout is the amount billed. Browser-submitted prices are ignored.",
+      refunds:
+        "Refunds and payment retries are handled manually, case by case. A checkout redirect is not a refund or a completed payment.",
+      ai:
+        "Output is an AI-assisted draft. It is not completed original research, a journal submission, or a publication guarantee.",
+    },
+  },
   services: {
     id: "services",
     heading: "How We Help You Build a Stronger Profile",
@@ -238,8 +289,25 @@ export const copy = {
     heading: "Get in Touch",
     body: "Have questions about your profile or which visa category fits you? Reach out and we'll get back to you.",
     email: "yusufayomide267@gmail.com",
-    phone: "+1 (365) 530-7062",
-    phoneHref: "tel:+13655307062",
+    phones: [
+      {
+        label: "United States",
+        display: "+1 (614) 720-9512",
+        href: "tel:+16147209512",
+      },
+      {
+        label: "Nigeria",
+        display: "+234 907 283 7051",
+        href: "tel:+2349072837051",
+      },
+    ],
+    whatsapp: {
+      href: "https://wa.me/16147209512",
+      launcherLabel: "Open WhatsApp chat",
+      heading: "Chat with us on WhatsApp",
+      body: "Questions about your profile or visa category? Message the team on WhatsApp.",
+      cta: "Contact us on WhatsApp",
+    },
     visaOptions: [
       { value: "EB1A", label: "EB1A" },
       { value: "O1", label: "O1" },
@@ -263,7 +331,8 @@ export const copy = {
     ctaLead:
       "Book a free consultation and we'll walk through your background.",
     linkedin: "https://www.linkedin.com/in/yuzzydaiz/",
+    researchPrivacy: "Research data notice",
     disclaimer:
-      "Yuzzy Visa Support provides informational and educational services only. We are not attorneys and do not offer legal advice or representation before U.S. immigration authorities. For legal guidance, consult a licensed immigration attorney. We do not guarantee the accuracy of the information provided or the outcome of any petition or application.",
+      "Yuzzy Visa Support provides informational and educational services only. We are not attorneys and do not offer legal advice or representation before U.S. immigration authorities. For legal guidance, consult a licensed immigration attorney. We do not guarantee the accuracy of the information provided or the outcome of any petition or application. Research drafts are AI-assisted and are not completed original research or a publication guarantee.",
   },
 } as const;

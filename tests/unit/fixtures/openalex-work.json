@@ -1,0 +1,11 @@
+{
+  "id": "https://openalex.org/W123",
+  "display_name": "A fake but stable climate meta analysis",
+  "publication_year": 2020,
+  "doi": "https://doi.org/10.1038/nature12373",
+  "authorships": [{ "author": { "display_name": "Ada Example" } }],
+  "primary_location": {
+    "source": { "display_name": "Nature" },
+    "landing_page_url": "https://doi.org/10.1038/nature12373"
+  }
+}

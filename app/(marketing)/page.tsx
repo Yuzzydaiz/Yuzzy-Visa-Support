@@ -1,4 +1,5 @@
 import { Hero } from "@/components/sections/hero";
+import { ResearchAssistant } from "@/components/sections/research-assistant";
 import { TrustChips } from "@/components/sections/trust-chips";
 import { Services } from "@/components/sections/services";
 import { HowWeWork } from "@/components/sections/how-we-work";
@@ -34,6 +35,7 @@ export default function HomePage() {
       <JsonLd />
       <Hero />
       <TrustChips />
+      <ResearchAssistant />
       <Services />
       <HowWeWork />
       <About />

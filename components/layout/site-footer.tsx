@@ -73,6 +73,22 @@ export function SiteFooter() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/research"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
+                >
+                  Research draft
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/research/privacy"
+                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
+                >
+                  {copy.footer.researchPrivacy}
+                </Link>
+              </li>
             </ul>
           </nav>
 
@@ -94,19 +110,24 @@ export function SiteFooter() {
                   {copy.contact.email}
                 </a>
               </li>
-              <li className="flex items-center gap-2">
-                <PhoneIcon
-                  className="size-4 shrink-0 text-brand-navy"
-                  strokeWidth={1.75}
-                  aria-hidden
-                />
-                <a
-                  href={copy.contact.phoneHref}
-                  className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
-                >
-                  {copy.contact.phone}
-                </a>
-              </li>
+              {copy.contact.phones.map((phone) => (
+                <li key={phone.href} className="flex items-start gap-2">
+                  <PhoneIcon
+                    className="mt-0.5 size-4 shrink-0 text-brand-navy"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                  <a
+                    href={phone.href}
+                    className="text-sm text-foreground/80 transition-colors hover:text-brand-navy"
+                  >
+                    <span className="block text-xs text-muted-foreground">
+                      {phone.label}
+                    </span>
+                    {phone.display}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 

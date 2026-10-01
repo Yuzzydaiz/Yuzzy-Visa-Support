@@ -1,0 +1,49 @@
+import type { ContentStatus } from "@/lib/research/references/types";
+
+export type SourceManifestEntry = {
+  refId: string;
+  title: string;
+  authors: string[];
+  year?: number;
+  journal?: string;
+  doi?: string;
+  evidence: string;
+  contentStatus: ContentStatus | "full_text" | "unavailable";
+};
+
+export type PaperReferenceLike = {
+  refId: string;
+  title?: string | null;
+  authors?: string[] | null;
+  year?: number | null;
+  journal?: string | null;
+  doi?: string | null;
+  abstract?: string | null;
+  userProvidedNotes?: string | null;
+  verificationStatus?: string;
+  selectedByUser?: boolean;
+  contentStatus?: string;
+};
+
+export function allowedReferences(references: PaperReferenceLike[]): PaperReferenceLike[] {
+  return references.filter(
+    (reference) =>
+      reference.verificationStatus === "verified" &&
+      reference.selectedByUser !== false,
+  );
+}
+
+export function buildSourceManifest(
+  references: PaperReferenceLike[],
+): SourceManifestEntry[] {
+  return allowedReferences(references).map((reference) => ({
+    refId: reference.refId,
+    title: reference.title || reference.refId,
+    authors: reference.authors ?? [],
+    year: reference.year ?? undefined,
+    journal: reference.journal ?? undefined,
+    doi: reference.doi ?? undefined,
+    evidence: (reference.abstract || reference.userProvidedNotes || "").trim(),
+    contentStatus: (reference.contentStatus as SourceManifestEntry["contentStatus"]) || "unavailable",
+  }));
+}

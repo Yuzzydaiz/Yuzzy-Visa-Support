@@ -1,0 +1,16 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.1038/nature12373",
+    "URL": "https://doi.org/10.1038/nature12373",
+    "title": ["A fake but stable climate meta analysis"],
+    "author": [{ "given": "Ada", "family": "Example" }],
+    "issued": { "date-parts": [[2020]] },
+    "container-title": ["Nature"],
+    "volume": "1",
+    "issue": "2",
+    "page": "1-4",
+    "abstract": "<jats:p>Verified abstract text.</jats:p>"
+  }
+}
