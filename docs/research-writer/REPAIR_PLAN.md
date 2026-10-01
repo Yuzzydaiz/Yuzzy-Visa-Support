@@ -425,6 +425,18 @@ Result: all 12 harness tests pass. Local gates: lint 0 errors, `tsc` clean, 174 
 
 Still outstanding before a paying launch: a real live charge and webhook delivery plus reconciliation (owner approved), strict-mode in a browser, and the OpenAI primary path (currently bypassed with `LLM_PRIMARY=openrouter`).
 
+### Final review fixes (2026-10-02)
+
+A third fresh-context review (`docs/reviews/2026-10-02-ai-research-paper-gen-final.md`) found one blocker and one major, fixed here:
+
+- **Blocker (SSRF DNS rebinding).** `safeFetch` validated a hostname's DNS answers and then let `fetch` resolve the hostname a second time, so a rebinding attacker could reach the private/metadata addresses the guard claims to block. Fix: `safeFetch` now uses a Node `http(s)` transport whose connection `lookup` (`createPinnedLookup`) resolves and validates the address at connect time, so the validated IP is the one actually contacted; redirects re-pin on every hop. Added a `safe-fetch.test.ts` regression where `lookup` returns a public address on the pre-check and a private address on the connect attempt and asserts it is rejected. Only `safeFetch`'s transport changed; the `lookup`/`transport` seams are injectable for tests.
+- **Major (soft validation issues were not surfaced).** After one repair, residual `uncited_claim`/`word_count` were accepted and only logged, so a user could get a fabricated uncited sentence with no warning. Fix: `generateSectionJson` now returns the soft issue messages, generation and regeneration persist them on the section (`validationWarnings`), the projection exposes them, and the workspace renders a "Needs review" notice per section. Regression: `generate-next.test.ts` asserts the warning is persisted.
+- **Minor fixes.** Regeneration quota now uses `$inc: { "regeneration.used": 1 }` in the ownership-conditioned finalize (a stale snapshot can no longer undercount and grant a free regeneration), with a real-Mongo regression; the Bachs client gets a 15s request timeout; the LLM timeout clamp and `generationLeaseMs` are bounded so the lease can never exceed the generation route `maxDuration` (300s), with an invariant test.
+
+Deferred (recorded): `safeFetch` still buffers the whole body before the size check (the transport now aborts mid-stream past `maxBytes`, but the final check remains); the export model duplicates the abstract and always empty `keywords`; access token in the query string.
+
+Committed as `6d82837` "Add the paid AI research writer end to end" on `ai-research-paper-gen` (150 files, clean tree). Local gates at commit time: lint 0 errors, `tsc` clean, 177 tests pass, build green, 9 e2e pass.
+
 
 
 ## Copyable task for the next implementer
