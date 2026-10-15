@@ -56,7 +56,13 @@ export type OrderStore = {
     lockUntil: Date;
     now: Date;
   }): Promise<boolean>;
-  savePaperIfRegenerationOwner?(paper: PaperDocument, owner: string): Promise<PaperDocument | null>;
+  // commit=false saves an unfinished long-section regeneration (its pending
+  // parts) without touching the paper text or the quota.
+  savePaperIfRegenerationOwner?(
+    paper: PaperDocument,
+    owner: string,
+    options?: { commit?: boolean },
+  ): Promise<PaperDocument | null>;
   findPaperForOrder(order: OrderDocument): Promise<PaperDocument | null>;
   recordWebhookEvent(eventId: string, type: string, orderPublicId?: string): Promise<"inserted" | "duplicate">;
   markPaid(input: {
@@ -286,8 +292,30 @@ export function createMongoOrderStore(): OrderStore {
       return result.matchedCount === 1;
     },
 
-    async savePaperIfRegenerationOwner(paper, owner) {
+    async savePaperIfRegenerationOwner(paper, owner, options) {
       await connectMongo();
+      if (options?.commit === false) {
+        const partial = await Paper.updateOne(
+          { publicId: paper.publicId, "generation.lockOwner": owner },
+          {
+            $set: {
+              "regeneration.pending": paper.regeneration?.pending,
+              "generation.currentStep": paper.generation?.currentStep,
+              "generation.totalInputTokens": paper.generation?.totalInputTokens ?? 0,
+              "generation.totalOutputTokens": paper.generation?.totalOutputTokens ?? 0,
+            },
+            $unset: {
+              "generation.lockOwner": "",
+              "generation.lockUntil": "",
+            },
+            $currentDate: { updatedAt: true },
+          },
+        );
+        if (partial.matchedCount !== 1) {
+          return null;
+        }
+        return Paper.findOne({ publicId: paper.publicId });
+      }
       const result = await Paper.updateOne(
         { publicId: paper.publicId, "generation.lockOwner": owner },
         {
@@ -306,6 +334,7 @@ export function createMongoOrderStore(): OrderStore {
           $unset: {
             "generation.lockOwner": "",
             "generation.lockUntil": "",
+            "regeneration.pending": "",
           },
           $currentDate: { updatedAt: true },
         },

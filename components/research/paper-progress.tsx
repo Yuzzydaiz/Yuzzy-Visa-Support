@@ -4,7 +4,10 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { ACCESS_STORAGE_KEY } from "@/lib/research/draft";
+import {
+  RecoveryTokenForm,
+  readStoredToken,
+} from "@/components/research/recovery-token";
 import type { WorkspacePaper } from "@/components/research/paper-workspace";
 
 const PaperWorkspace = dynamic(
@@ -27,6 +30,8 @@ type PaperPayload = {
     type?: string;
     contentJson?: unknown;
     generationStatus: string;
+    partsTotal?: number;
+    partsDone?: number;
     plainText: string;
     citationHtml: string;
   }>;
@@ -37,24 +42,14 @@ type PaperPayload = {
   editorDocument?: unknown;
 };
 
-function readStoredToken() {
-  const stored = sessionStorage.getItem(ACCESS_STORAGE_KEY);
-  if (!stored) {
-    return undefined;
-  }
-  try {
-    return (JSON.parse(stored) as { token?: string }).token;
-  } catch {
-    return undefined;
-  }
-}
-
 export function PaperProgress({ paperId }: { paperId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [paper, setPaper] = useState<PaperPayload | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const [needsToken, setNeedsToken] = useState(false);
+  const [reload, setReload] = useState(0);
   const running = useRef(false);
 
   useEffect(() => {
@@ -77,9 +72,11 @@ export function PaperProgress({ paperId }: { paperId: string }) {
       }
       if (!response.ok) {
         setError(payload.message ?? "Could not load this paper.");
+        setNeedsToken(response.status === 401 || response.status === 403);
         return;
       }
       setError(undefined);
+      setNeedsToken(false);
       setPaper(payload);
       if (searchParams.get("token")) {
         router.replace(`/research/paper/${encodeURIComponent(paperId)}`);
@@ -89,7 +86,7 @@ export function PaperProgress({ paperId }: { paperId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [paperId, router, searchParams]);
+  }, [paperId, router, searchParams, reload]);
 
   async function generateLoop() {
     if (running.current) {
@@ -99,7 +96,9 @@ export function PaperProgress({ paperId }: { paperId: string }) {
     setBusy(true);
     setError(undefined);
     try {
-      for (let i = 0; i < 40; i += 1) {
+      // One request per step: the outline, then each section part. A 40 page
+      // paper splits into roughly 15 parts; keep generous headroom.
+      for (let i = 0; i < 100; i += 1) {
         const token = searchParams.get("token") || readStoredToken();
         const response = await fetch(
           `/api/research/papers/${encodeURIComponent(paperId)}/generate-next`,
@@ -165,6 +164,12 @@ export function PaperProgress({ paperId }: { paperId: string }) {
           {error}
         </p>
       ) : null}
+      {needsToken ? (
+        <RecoveryTokenForm
+          paperPublicId={paperId}
+          onSaved={() => setReload((value) => value + 1)}
+        />
+      ) : null}
       {paper?.generation?.lastError ? (
         <p className="text-sm text-destructive">{paper.generation.lastError}</p>
       ) : null}
@@ -187,7 +192,12 @@ export function PaperProgress({ paperId }: { paperId: string }) {
             <p className="text-sm font-medium">
               {section.title}{" "}
               <span className="text-muted-foreground">
-                ({section.generationStatus})
+                ({section.generationStatus}
+                {section.generationStatus !== "complete" &&
+                (section.partsTotal ?? 1) > 1
+                  ? `, part ${Math.min((section.partsDone ?? 0) + 1, section.partsTotal ?? 1)} of ${section.partsTotal}`
+                  : ""}
+                )
               </span>
             </p>
             {section.citationHtml || section.plainText ? (

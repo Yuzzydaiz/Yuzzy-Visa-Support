@@ -20,6 +20,12 @@ import {
   paperManifest,
 } from "@/lib/research/generation/apply";
 import { generateSectionJson } from "@/lib/research/generation/next";
+import {
+  continuationText,
+  mergeSectionPart,
+  partBudget,
+  partsFor,
+} from "@/lib/research/generation/parts";
 import { joinedSectionText } from "@/lib/research/generation/validate";
 import {
   replaceSectionInTiptapDoc,
@@ -37,6 +43,18 @@ import {
 import { createMongoOrderStore, type OrderStore } from "@/lib/research/orders/store";
 import { publicPaperProjection } from "@/lib/research/papers/public";
 import { getResearchValidationSchemas } from "@/lib/validation/research";
+
+// A long section is regenerated part by part across requests. The parts are
+// kept here until the last one is written; only then does the section change
+// and the regeneration count against the quota.
+export type PendingRegeneration = {
+  sectionId: string;
+  instruction?: string;
+  partsTotal: number;
+  partsDone: number;
+  section?: SectionJson;
+  softIssues: string[];
+};
 
 function buildEditorDocument(
   paper: {
@@ -186,11 +204,6 @@ export async function handleRegenerateSection(input: {
     const writing = parseWritingLlmConfig(env);
     const timeouts = parseLlmTimeouts(env);
     const client = input.llm ?? createLlmClientFromConfig(writing.llm);
-    const argumentsForPrompt = [
-      ...(outlineItem.arguments ?? []),
-      parsed.data.instruction ? `User instruction: ${parsed.data.instruction}` : "",
-    ].filter(Boolean);
-
     let claimOwner: string | undefined;
     try {
       const owner = randomUUID();
@@ -217,6 +230,31 @@ export async function handleRegenerateSection(input: {
           paper = claimedPaper;
         }
       }
+      const pending = paper.regeneration?.pending as PendingRegeneration | undefined;
+      const partsTotal = partsFor(outlineItem.wordBudget);
+      if (pending && pending.sectionId !== parsed.data.sectionId) {
+        const pendingTitle =
+          paper.sections.find((section) => section.sectionId === pending.sectionId)
+            ?.title ?? pending.sectionId;
+        throw new ResearchApiError({
+          code: "VERSION_CONFLICT",
+          message: `Finish regenerating "${pendingTitle}" before starting another section.`,
+          requestId,
+        });
+      }
+      const continuing =
+        pending?.sectionId === parsed.data.sectionId &&
+        pending.partsTotal === partsTotal &&
+        pending.partsDone > 0 &&
+        pending.partsDone < partsTotal;
+      const partIndex = continuing ? pending.partsDone : 0;
+      // A continuation keeps the instruction the regeneration started with.
+      const instruction = continuing ? pending.instruction : parsed.data.instruction;
+      const argumentsForPrompt = [
+        ...(outlineItem.arguments ?? []),
+        instruction ? `User instruction: ${instruction}` : "",
+      ].filter(Boolean);
+
       const generation = ensureGenerationState(paper);
       generation.lockOwner = owner;
       generation.lockUntil = new Date(now.getTime() + leaseMs);
@@ -234,8 +272,16 @@ export async function handleRegenerateSection(input: {
           title: outlineItem.title,
           order: outlineItem.order,
           arguments: argumentsForPrompt,
-          wordBudget: outlineItem.wordBudget,
+          wordBudget: partBudget(outlineItem.wordBudget, partIndex, partsTotal),
           plannedRefIds: [...citeAllow],
+        },
+        part: {
+          index: partIndex,
+          total: partsTotal,
+          previousText:
+            partIndex > 0 && pending?.section
+              ? continuationText(pending.section.paragraphs)
+              : undefined,
         },
         manifest,
         client,
@@ -254,14 +300,68 @@ export async function handleRegenerateSection(input: {
           requestId,
         });
       }
-      paper.sections[sectionIndex].contentJson = sectionJson;
-      paper.sections[sectionIndex].validationWarnings = softIssues;
+      const merged =
+        partIndex > 0 ? mergeSectionPart(pending?.section, sectionJson) : sectionJson;
+      const mergedIssues =
+        partIndex > 0
+          ? [...new Set([...(pending?.softIssues ?? []), ...softIssues])]
+          : softIssues;
+      const currentUsed = paper.regeneration?.used ?? used;
+      const currentLimit = paper.regeneration?.limit ?? limit;
+      if (partIndex + 1 < partsTotal) {
+        // More parts to write: stage this one and leave the section untouched.
+        const nextPending: PendingRegeneration = {
+          sectionId: parsed.data.sectionId,
+          instruction,
+          partsTotal,
+          partsDone: partIndex + 1,
+          section: merged,
+          softIssues: mergedIssues,
+        };
+        paper.regeneration = {
+          used: currentUsed,
+          limit: currentLimit,
+          pending: nextPending,
+        };
+        generation.lockOwner = undefined;
+        generation.lockUntil = undefined;
+        const staged = store.savePaperIfRegenerationOwner
+          ? await store.savePaperIfRegenerationOwner(paper, owner, { commit: false })
+          : (await store.savePaper(paper), paper);
+        if (!staged) {
+          throw new ResearchApiError({
+            code: "VERSION_CONFLICT",
+            message: "Regeneration ownership expired before saving.",
+            requestId,
+          });
+        }
+        paper = staged;
+        researchLog({
+          requestId,
+          operation: "regenerate-part",
+          publicPaperId: paper.publicId,
+          status: 200,
+          durationMs: Date.now() - started,
+          extra: { stepId: parsed.data.sectionId, part: partIndex + 1, of: partsTotal },
+        });
+        return {
+          status: 200,
+          body: publicPaperProjection(paper, requestId),
+          cookie,
+        };
+      }
+      const target = paper.sections[sectionIndex];
+      target.contentJson = merged;
+      target.validationWarnings = mergedIssues;
+      target.partsTotal = partsTotal;
+      target.partsDone = partsTotal;
       applyRenderedPaper(paper, manifest);
       applyPaperBibliography(paper, manifest);
-      paper.editorDocument = buildEditorDocument(paper, sectionJson);
+      paper.editorDocument = buildEditorDocument(paper, merged);
       paper.regeneration = {
-        used: used + 1,
-        limit,
+        used: currentUsed + 1,
+        limit: currentLimit,
+        pending: undefined,
       };
       paper.editorVersion = (paper.editorVersion ?? 0) + 1;
       generation.lockOwner = undefined;

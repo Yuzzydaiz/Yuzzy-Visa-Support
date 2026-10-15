@@ -79,9 +79,12 @@ export async function handleCreateOrder(input: {
       });
     }
     const lookup = input.resolve ? undefined : parseReferenceLookupConfig(env);
+    // When the user picked one of several candidates, the original input is
+    // ambiguous by definition. Re-verify the work they chose (by its DOI)
+    // rather than re-running the same ambiguous search.
     const resolveInputs: ResolveInput[] = selected.map((reference) => ({
       id: reference.id,
-      originalInput: reference.originalInput,
+      originalInput: reference.matched?.doi?.trim() || reference.originalInput,
       userProvidedNotes: reference.userProvidedNotes,
     }));
     const resolved = input.resolve
@@ -93,11 +96,8 @@ export async function handleCreateOrder(input: {
             apiKey: lookup!.openalexApiKey,
           }),
         });
-    const resolvedByInput = new Map(
-      resolved.map((item) => [item.originalInput.trim(), item]),
-    );
-    const serverVerified = selected.map((reference) => {
-      const server = resolvedByInput.get(reference.originalInput.trim());
+    const serverVerified = selected.map((reference, index) => {
+      const server = resolved[index];
       if (!server || server.verificationStatus !== "verified" || !server.matched) {
         throw new ResearchApiError({
           code: "REFERENCE_UNRESOLVED",
@@ -181,13 +181,18 @@ export async function handleCreateOrder(input: {
         status: "awaiting_payment",
         regeneration: { used: 0, limit: product.regenerationLimit },
         references: serverVerified.map(({ reference, server }, index) => ({
-          refId: reference.id ?? server.id ?? `ref_${String(index + 1).padStart(2, "0")}`,
+          // Server-assigned short ids: the model cites with [CITE:ref_01] and
+          // client draft ids are opaque browser UUIDs.
+          refId: `ref_${String(index + 1).padStart(2, "0")}`,
           originalInput: reference.originalInput,
           inputType: detectReferenceInputType(reference.originalInput),
           title: server.matched!.title,
           authors: server.matched!.authors ?? [],
           year: server.matched!.year,
           journal: server.matched!.journal,
+          volume: server.matched!.volume,
+          issue: server.matched!.issue,
+          pages: server.matched!.pages,
           doi: server.matched!.doi,
           canonicalUrl: server.matched!.url,
           abstract: server.matched!.abstract,

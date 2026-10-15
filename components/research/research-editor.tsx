@@ -22,10 +22,12 @@ export function ResearchEditor({
   doc,
   onChange,
   onSelectCitation,
+  formatCitation,
 }: {
   doc: TiptapDoc;
   onChange: (doc: TiptapDoc) => void;
   onSelectCitation: (refIds: string[]) => void;
+  formatCitation: (refIds: string[]) => string;
 }) {
   const skip = useRef(true);
   const editor = useEditor({
@@ -33,7 +35,7 @@ export function ResearchEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
       headingWithSection,
-      Citation,
+      Citation.configure({ formatLabel: formatCitation }),
     ],
     content: doc,
     editorProps: {

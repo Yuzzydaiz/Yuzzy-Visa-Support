@@ -11,8 +11,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ACCESS_STORAGE_KEY } from "@/lib/research/draft";
+import {
+  CITATION_STYLE_IDS,
+  type CitationStyleId,
+} from "@/lib/config/research-product";
+import { citationFormatter } from "@/lib/research/citations/editor-labels";
+import { readStoredToken } from "@/components/research/recovery-token";
 import { sectionsToTiptapDoc, type TiptapDoc } from "@/lib/research/editor/document";
+import { CITATION_STYLE_LABELS } from "@/lib/research/labels";
 import type { SectionJson } from "@/lib/research/ai/schemas";
 
 export type WorkspacePaper = {
@@ -32,21 +38,17 @@ export type WorkspacePaper = {
   }>;
   references: SourceItem[];
   bibliography: string[];
-  regeneration: { used: number; limit: number };
+  regeneration: {
+    used: number;
+    limit: number;
+    // A long-section regeneration that has written some parts but not all.
+    pending?: { sectionId: string; partsDone: number; partsTotal: number } | null;
+  };
   editorDocument?: TiptapDoc | null;
 };
 
-function readStoredToken() {
-  const stored = sessionStorage.getItem(ACCESS_STORAGE_KEY);
-  if (!stored) {
-    return undefined;
-  }
-  try {
-    return (JSON.parse(stored) as { token?: string }).token;
-  } catch {
-    return undefined;
-  }
-}
+// Enough requests for the longest section split into parts, with headroom.
+const MAX_REGENERATION_REQUESTS = 12;
 
 function authHeaders(): HeadersInit | undefined {
   const token = readStoredToken();
@@ -93,6 +95,13 @@ export function PaperWorkspace({
   const timer = useRef<number | undefined>(undefined);
   const inFlight = useRef<Promise<boolean> | null>(null);
   const doc = useMemo(() => docFromPaper(paper), [paper]);
+  const style = paper.citationStyle as CitationStyleId;
+  // The editor reads this once when it mounts; it is remounted (editorKey)
+  // whenever the citation style or regenerated content changes.
+  const formatCitation = useMemo(
+    () => citationFormatter(style, paper.references, doc),
+    [style, paper.references, doc],
+  );
 
   async function patchOnce(
     contentJson: TiptapDoc,
@@ -200,7 +209,10 @@ export function PaperWorkspace({
   }, [paperId]);
 
   async function regenerate() {
-    if (!activeSection) {
+    // An unfinished long-section regeneration must be completed first; the
+    // server refuses to start another section until it is.
+    const sectionId = paper.regeneration.pending?.sectionId ?? activeSection;
+    if (!sectionId) {
       return;
     }
     setBusy(true);
@@ -211,34 +223,93 @@ export function PaperWorkspace({
         setRegenError("Save your pending edits before regenerating.");
         return;
       }
+      // Long sections are rewritten in parts, one request each. The section
+      // only changes (and the quota only counts) when the last part lands.
+      for (let step = 0; step < MAX_REGENERATION_REQUESTS; step += 1) {
+        const response = await fetch(
+          `/api/research/papers/${encodeURIComponent(paperId)}/regenerate`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(authHeaders() ?? {}),
+            },
+            body: JSON.stringify({
+              sectionId,
+              instruction: instruction || undefined,
+            }),
+          },
+        );
+        const payload = (await response.json()) as WorkspacePaper & {
+          message?: string;
+        };
+        if (!response.ok) {
+          setRegenError(payload.message ?? "Could not regenerate this section.");
+          return;
+        }
+        if (payload.regeneration?.pending?.sectionId === sectionId) {
+          setPaper((current) => ({ ...current, regeneration: payload.regeneration }));
+          continue;
+        }
+        window.clearTimeout(timer.current);
+        pending.current = null;
+        editorVersion.current = payload.editorVersion;
+        setPaper((current) => ({ ...current, ...payload }));
+        setSaveState("saved");
+        setEditorKey((value) => value + 1);
+        return;
+      }
+      setRegenError("Regeneration is taking longer than expected. Press Continue to resume.");
+    } catch {
+      setRegenError("Could not regenerate this section.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeCitationStyle(next: CitationStyleId) {
+    if (next === paper.citationStyle) {
+      return;
+    }
+    setBusy(true);
+    setRegenError(undefined);
+    try {
+      const flushed = await flush();
+      if (!flushed) {
+        setRegenError("Save your pending edits before changing the style.");
+        return;
+      }
       const response = await fetch(
-        `/api/research/papers/${encodeURIComponent(paperId)}/regenerate`,
+        `/api/research/papers/${encodeURIComponent(paperId)}`,
         {
-          method: "POST",
+          method: "PATCH",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
             ...(authHeaders() ?? {}),
           },
           body: JSON.stringify({
-            sectionId: activeSection,
-            instruction: instruction || undefined,
+            editorVersion: editorVersion.current,
+            citationStyle: next,
           }),
         },
       );
       const payload = (await response.json()) as WorkspacePaper & { message?: string };
-      if (!response.ok) {
-        setRegenError(payload.message ?? "Could not regenerate this section.");
+      if (response.status === 409) {
+        setSaveState("conflict");
         return;
       }
-      window.clearTimeout(timer.current);
-      pending.current = null;
+      if (!response.ok) {
+        setRegenError(payload.message ?? "Could not change the citation style.");
+        return;
+      }
       editorVersion.current = payload.editorVersion;
       setPaper((current) => ({ ...current, ...payload }));
       setSaveState("saved");
       setEditorKey((value) => value + 1);
     } catch {
-      setRegenError("Could not regenerate this section.");
+      setRegenError("Could not change the citation style.");
     } finally {
       setBusy(false);
     }
@@ -272,6 +343,11 @@ export function PaperWorkspace({
   }
 
   const remaining = paper.regeneration.limit - paper.regeneration.used;
+  const regenPending = paper.regeneration.pending ?? null;
+  const regenPendingTitle = regenPending
+    ? (paper.sections.find((section) => section.sectionId === regenPending.sectionId)
+        ?.title ?? regenPending.sectionId)
+    : "";
   const flaggedSections = paper.sections.filter(
     (section) => (section.validationWarnings?.length ?? 0) > 0,
   );
@@ -379,11 +455,18 @@ export function PaperWorkspace({
             doc={doc}
             onChange={queueSave}
             onSelectCitation={setSelectedIds}
+            formatCitation={formatCitation}
           />
         </div>
         <div className="space-y-2 rounded-xl border border-border p-4">
           <p className="text-sm font-medium">
             Regenerate section ({remaining} left)
+            {regenPending ? (
+              <span className="block text-xs font-normal text-muted-foreground">
+                {busy ? "Rewriting" : "Unfinished rewrite of"} {regenPendingTitle}: part{" "}
+                {regenPending.partsDone + (busy ? 1 : 0)} of {regenPending.partsTotal}
+              </span>
+            ) : null}
           </p>
           <textarea
             value={instruction}
@@ -398,10 +481,31 @@ export function PaperWorkspace({
             onClick={() => void regenerate()}
             className="inline-flex h-11 items-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {busy ? "Regenerating…" : "Regenerate"}
+            {busy
+              ? "Regenerating…"
+              : regenPending
+                ? `Continue regenerating ${regenPendingTitle}`
+                : "Regenerate"}
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            Citation style
+            <select
+              value={style}
+              disabled={busy}
+              onChange={(event) =>
+                void changeCitationStyle(event.target.value as CitationStyleId)
+              }
+              className="h-11 rounded-lg border border-border bg-background px-3 text-sm"
+            >
+              {CITATION_STYLE_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {CITATION_STYLE_LABELS[id]}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             onClick={() => void download("docx")}

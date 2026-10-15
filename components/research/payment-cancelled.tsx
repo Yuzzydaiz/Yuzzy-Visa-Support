@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ACCESS_STORAGE_KEY } from "@/lib/research/draft";
+import {
+  RecoveryTokenForm,
+  readStoredToken,
+} from "@/components/research/recovery-token";
 
 export function PaymentCancelled({
   paperId,
@@ -14,18 +17,17 @@ export function PaymentCancelled({
 }) {
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const [needsToken, setNeedsToken] = useState(false);
 
   async function retry() {
     if (!paperId || !orderId) {
       setError("Missing order details.");
       return;
     }
-    const stored = sessionStorage.getItem(ACCESS_STORAGE_KEY);
-    const parsed = stored
-      ? (JSON.parse(stored) as { token?: string })
-      : undefined;
-    if (!parsed?.token) {
-      setError("Save your recovery token from the review step, then retry.");
+    const token = readStoredToken();
+    if (!token) {
+      setError("Enter the recovery token from the review step, then retry.");
+      setNeedsToken(true);
       return;
     }
     setBusy(true);
@@ -34,12 +36,12 @@ export function PaymentCancelled({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${parsed.token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           paperPublicId: paperId,
           orderPublicId: orderId,
-          token: parsed.token,
+          token: token,
         }),
       });
       const payload = (await response.json()) as {
@@ -68,6 +70,15 @@ export function PaymentCancelled({
         <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
+      ) : null}
+      {needsToken && paperId ? (
+        <RecoveryTokenForm
+          paperPublicId={paperId}
+          onSaved={() => {
+            setNeedsToken(false);
+            setError(undefined);
+          }}
+        />
       ) : null}
       <div className="flex flex-wrap gap-3">
         <button

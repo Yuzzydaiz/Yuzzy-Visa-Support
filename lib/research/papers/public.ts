@@ -83,11 +83,16 @@ export function publicPaperProjection(
       citedRefIds: section.citedRefIds ?? [],
       generationStatus: section.generationStatus ?? "pending",
       validationWarnings: section.validationWarnings ?? [],
+      partsTotal: section.partsTotal ?? 1,
+      partsDone:
+        section.partsDone ??
+        (section.generationStatus === "complete" ? (section.partsTotal ?? 1) : 0),
     })),
     bibliography: paper.generation?.bibliography ?? [],
     regeneration: {
       used: paper.regeneration?.used ?? 0,
       limit: paper.regeneration?.limit ?? 3,
+      pending: pendingSummary(paper.regeneration?.pending),
     },
     generation: {
       currentStep: paper.generation?.currentStep,
@@ -102,6 +107,32 @@ export function publicPaperProjection(
 }
 
 export type PublicPaper = ReturnType<typeof publicPaperProjection>;
+
+// Progress only; the staged text stays on the server until it is committed.
+function pendingSummary(
+  pending: unknown,
+): { sectionId: string; partsDone: number; partsTotal: number } | null {
+  if (!pending || typeof pending !== "object") {
+    return null;
+  }
+  const value = pending as {
+    sectionId?: unknown;
+    partsDone?: unknown;
+    partsTotal?: unknown;
+  };
+  if (
+    typeof value.sectionId !== "string" ||
+    typeof value.partsDone !== "number" ||
+    typeof value.partsTotal !== "number"
+  ) {
+    return null;
+  }
+  return {
+    sectionId: value.sectionId,
+    partsDone: value.partsDone,
+    partsTotal: value.partsTotal,
+  };
+}
 
 export function sectionJsonFromPaper(section: PaperDocument["sections"][number]): SectionJson {
   const stored = section.contentJson as SectionJson | undefined;

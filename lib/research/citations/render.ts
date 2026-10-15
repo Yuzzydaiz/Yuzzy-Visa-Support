@@ -24,6 +24,19 @@ function familyName(author: string): string {
   return parts.at(-1) || author;
 }
 
+function sortKey(source: CiteSource): string {
+  const lead = source.authors[0] ? familyName(source.authors[0]) : source.title;
+  return lead.toLocaleLowerCase();
+}
+
+function compareAuthorDate(a: CiteSource, b: CiteSource): number {
+  return (
+    sortKey(a).localeCompare(sortKey(b)) ||
+    (a.year ?? Number.MAX_SAFE_INTEGER) - (b.year ?? Number.MAX_SAFE_INTEGER) ||
+    a.title.localeCompare(b.title)
+  );
+}
+
 function bibliographyLine(style: CitationStyleId, source: CiteSource, index: number): string {
   const authors = source.authors.length
     ? source.authors.map((name) => familyName(name)).join(", ")
@@ -70,13 +83,20 @@ export function renderCitations(input: {
     }
     return inTextCitation(input.style, sources);
   });
-  const bibliography = order.map((id, index) => {
+  const cited = order.map((id) => {
     const source = byId.get(id);
     if (!source) {
       throw new CitationTokenError(`Unknown citation id: ${id}`);
     }
-    return bibliographyLine(input.style, source, index + 1);
+    return source;
   });
+  // Numbered styles list sources in first-citation order; author-date styles
+  // (APA, MLA, Harvard, Chicago) list them alphabetically by author, then year.
+  const numberedStyle = input.style === "ieee" || input.style === "vancouver";
+  const listed = numberedStyle ? cited : [...cited].sort(compareAuthorDate);
+  const bibliography = listed.map((source, index) =>
+    bibliographyLine(input.style, source, index + 1),
+  );
   return { text, citedIds: order, bibliography };
 }
 

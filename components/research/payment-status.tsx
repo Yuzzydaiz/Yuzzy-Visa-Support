@@ -3,19 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { ACCESS_STORAGE_KEY } from "@/lib/research/draft";
-
-function readStoredToken() {
-  const stored = sessionStorage.getItem(ACCESS_STORAGE_KEY);
-  if (!stored) {
-    return undefined;
-  }
-  try {
-    return (JSON.parse(stored) as { token?: string }).token;
-  } catch {
-    return undefined;
-  }
-}
+import { clearResearchDraft } from "@/components/research/use-research-draft";
+import {
+  RecoveryTokenForm,
+  readStoredToken,
+} from "@/components/research/recovery-token";
 
 export function PaymentStatus({
   paperId,
@@ -26,6 +18,8 @@ export function PaymentStatus({
 }) {
   const [status, setStatus] = useState("awaiting_payment");
   const [error, setError] = useState<string | undefined>();
+  const [needsToken, setNeedsToken] = useState(false);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!paperId) {
@@ -37,7 +31,8 @@ export function PaymentStatus({
       const token = readStoredToken();
       if (!token) {
         if (!cancelled) {
-          setError("Save your recovery token from the review step, then refresh.");
+          setError("Enter the recovery token from the review step to check this payment.");
+          setNeedsToken(true);
         }
         return;
       }
@@ -54,9 +49,11 @@ export function PaymentStatus({
       }
       if (!response.ok) {
         setError(payload.message ?? "Could not load this paper.");
+        setNeedsToken(response.status === 401 || response.status === 403);
         return;
       }
       setError(undefined);
+      setNeedsToken(false);
       setStatus(payload.status ?? "awaiting_payment");
     }
 
@@ -68,10 +65,16 @@ export function PaymentStatus({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [paperId]);
+  }, [paperId, reload]);
 
   const ready =
     status === "ready" || status === "generating" || status === "completed";
+
+  useEffect(() => {
+    if (ready) {
+      clearResearchDraft();
+    }
+  }, [ready]);
 
   return (
     <div className="space-y-4">
@@ -89,6 +92,12 @@ export function PaymentStatus({
           {error}
         </p>
       ) : null}
+      {needsToken && paperId ? (
+        <RecoveryTokenForm
+          paperPublicId={paperId}
+          onSaved={() => setReload((value) => value + 1)}
+        />
+      ) : null}
       {ready && paperId ? (
         <Link
           href={`/research/paper/${encodeURIComponent(paperId)}`}
@@ -101,7 +110,7 @@ export function PaymentStatus({
         href="/research"
         className="inline-flex h-11 items-center rounded-lg border border-border px-5 text-sm font-medium"
       >
-        Back to draft
+        {ready ? "Start a new paper" : "Back to draft"}
       </Link>
     </div>
   );

@@ -47,9 +47,14 @@ import {
   type OutlinePlanItem,
 } from "@/lib/research/generation/outline";
 import {
-  joinedSectionText,
-  validateSectionOutput,
-} from "@/lib/research/generation/validate";
+  continuationText,
+  mergeSectionPart,
+  partBudget,
+  partStepId,
+  partsFor,
+  type SectionPart,
+} from "@/lib/research/generation/parts";
+import { validateSectionOutput } from "@/lib/research/generation/validate";
 import { consumeResearchRateLimit } from "@/lib/research/http/rateLimit";
 import { recordTokenUsage, researchLog } from "@/lib/research/http/log";
 import {
@@ -61,6 +66,19 @@ import { createMongoOrderStore, type OrderStore } from "@/lib/research/orders/st
 import { publicPaperProjection } from "@/lib/research/papers/public";
 
 const WRITING_MAX_TOKENS = 4000;
+// A section's output budget scales with its word target: roughly 1.4 tokens per
+// English word, plus JSON framing, citation tokens, and headroom for reasoning
+// models that count reasoning tokens against the output limit.
+const SECTION_MIN_TOKENS = 4000;
+const SECTION_MAX_TOKENS = 32_000;
+
+export function sectionMaxTokens(wordBudget: number): number {
+  const words = Number.isFinite(wordBudget) && wordBudget > 0 ? wordBudget : 0;
+  return Math.min(
+    SECTION_MAX_TOKENS,
+    Math.max(SECTION_MIN_TOKENS, Math.ceil(words * 2) + 2000),
+  );
+}
 const UTILITY_MAX_TOKENS = 2500;
 
 function assignPaperArray(
@@ -102,6 +120,8 @@ function seedSections(outline: OutlinePlanItem[]) {
     citedRefIds: [],
     generationStatus: "pending",
     generationAttempts: 0,
+    partsTotal: partsFor(item.wordBudget),
+    partsDone: 0,
   }));
 }
 
@@ -175,6 +195,9 @@ export async function generateSectionJson(input: {
   citeAllow?: Set<string>;
   writingTimeoutMs?: number;
   utilityTimeoutMs?: number;
+  // Set when a long section is written in parts; outlineItem.wordBudget is
+  // then the budget for this part only.
+  part?: SectionPart;
 }): Promise<{ section: SectionJson; softIssues: string[] }> {
   const ids = input.citeAllow ?? allowedIds(input.manifest);
   const originalResearchWithFindings =
@@ -187,7 +210,7 @@ export async function generateSectionJson(input: {
   });
   const first = await completeJsonWithBackoff(input.client, {
     model: input.writingModel,
-    maxTokens: WRITING_MAX_TOKENS,
+    maxTokens: sectionMaxTokens(input.outlineItem.wordBudget),
     timeoutMs: input.writingTimeoutMs,
     schema: { name: "research_section", schema: sectionOutputJsonSchema },
     system: sectionSystemPrompt({
@@ -195,6 +218,7 @@ export async function generateSectionJson(input: {
       sectionId: input.outlineItem.sectionId,
       sectionTitle: input.outlineItem.title,
       wordBudget: input.outlineItem.wordBudget,
+      part: input.part,
     }),
     user: sectionUserPrompt({
       title: input.paper.title,
@@ -205,6 +229,7 @@ export async function generateSectionJson(input: {
       plannedRefIds: input.outlineItem.plannedRefIds,
       evidence: evidenceBlock(input.manifest),
       researchContext,
+      part: input.part,
     }),
   });
   addTokenUsage(input.paper, first.usage);
@@ -245,12 +270,16 @@ export async function generateSectionJson(input: {
   if (needsRepair) {
     const repaired = await completeJsonWithBackoff(input.client, {
       model: input.utilityModel,
-      maxTokens: UTILITY_MAX_TOKENS,
+      // The repair returns the whole section, so it needs the section budget.
+      maxTokens: sectionMaxTokens(input.outlineItem.wordBudget),
       timeoutMs: input.utilityTimeoutMs,
       schema: { name: "research_section", schema: sectionOutputJsonSchema },
       system: repairSystemPrompt(),
       user: JSON.stringify({
         sectionId: input.outlineItem.sectionId,
+        ...(input.part && input.part.total > 1
+          ? { part: { number: input.part.index + 1, of: input.part.total } }
+          : {}),
         section,
         allowedIds: [...ids],
         issues,
@@ -319,6 +348,18 @@ export async function generateSectionJson(input: {
   return { section, softIssues };
 }
 
+// Paragraphs longer than this are left out of the coherence pass; rewriting
+// them would need a long response and they rarely carry the transitions.
+const COHERENCE_PARAGRAPH_MAX_WORDS = 350;
+
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+function editable(text: string | undefined): string {
+  return text && wordCount(text) <= COHERENCE_PARAGRAPH_MAX_WORDS ? text : "";
+}
+
 async function maybeCoherence(input: {
   paper: PaperDocument;
   manifest: SourceManifestEntry[];
@@ -328,26 +369,39 @@ async function maybeCoherence(input: {
   timeoutMs?: number;
 }) {
   const ids = allowedIds(input.manifest);
-  const payload = input.paper.sections.map((section) => ({
-    sectionId: section.sectionId,
-    title: section.title,
-    text: joinedSectionText((section.contentJson as SectionJson) ?? {
-      sectionId: section.sectionId,
-      title: section.title,
-      paragraphs: [{ text: section.plainText || "Placeholder." }],
-      usedReferenceIds: section.citedRefIds ?? [],
-      wordCountEstimate: section.actualWords ?? 0,
-    }),
-  }));
+  // Only each section's opening and closing paragraph is sent and may change,
+  // so the request and response stay bounded however long the paper is.
+  const payload = input.paper.sections.flatMap((section) => {
+    const json = section.contentJson as SectionJson | undefined;
+    if (!json?.paragraphs?.length) {
+      return [];
+    }
+    const paragraphs = json.paragraphs;
+    return [
+      {
+        sectionId: section.sectionId,
+        title: section.title,
+        opening: editable(paragraphs[0]?.text),
+        closing: paragraphs.length > 1 ? editable(paragraphs.at(-1)?.text) : "",
+      },
+    ];
+  });
+  const payloadWords = payload.reduce(
+    (sum, item) => sum + wordCount(item.opening) + wordCount(item.closing),
+    0,
+  );
+  if (payloadWords === 0) {
+    return;
+  }
   let result;
   try {
     result = await completeJsonWithBackoff(input.client, {
       model: input.utilityModel,
-      maxTokens: UTILITY_MAX_TOKENS,
+      maxTokens: Math.max(UTILITY_MAX_TOKENS, payloadWords * 2 + 1000),
       timeoutMs: input.timeoutMs,
       schema: { name: "coherence_edits", schema: coherenceOutputJsonSchema },
       system:
-        "Improve coherence across sections with narrow edits. Do not add reference ids or new facts. Return JSON {sections:[{sectionId,paragraphs:[{text}]}]} using only supplied section ids.",
+        "Improve coherence across sections with narrow edits to each section's opening and closing paragraph (smoother transitions, no repetition). Do not add reference ids or new facts. Keep every [CITE:...] token you keep exactly as written. Return JSON {sections:[{sectionId,opening,closing}]} using only supplied section ids; use an empty string for a paragraph you leave unchanged or that was supplied empty.",
       user: JSON.stringify({
         sections: payload,
         allowedIds: [...ids],
@@ -375,41 +429,59 @@ async function maybeCoherence(input: {
   const budgetById = new Map(
     (input.paper.outline ?? []).map((item) => [item.sectionId, item.wordBudget]),
   );
+  const sentById = new Map(payload.map((item) => [item.sectionId, item]));
   const seen = new Set<string>();
   for (const updated of parsed.sections) {
     if (seen.has(updated.sectionId)) {
       continue;
     }
     seen.add(updated.sectionId);
+    const sent = sentById.get(updated.sectionId);
     const index = input.paper.sections.findIndex(
       (section) => section.sectionId === updated.sectionId,
     );
-    if (index < 0) {
+    if (!sent || index < 0) {
       continue;
     }
     const existing = input.paper.sections[index].contentJson as SectionJson | undefined;
-    if (!existing) {
+    if (!existing?.paragraphs?.length) {
       continue;
     }
-    const candidate: SectionJson = {
-      ...existing,
-      paragraphs: updated.paragraphs,
-    };
-    const issues = validateSectionOutput({
-      section: candidate,
+    const paragraphs = existing.paragraphs.map((paragraph) => ({ ...paragraph }));
+    const opening = updated.opening.trim();
+    const closing = updated.closing.trim();
+    if (opening && sent.opening) {
+      paragraphs[0] = { text: opening };
+    }
+    if (closing && sent.closing && paragraphs.length > 1) {
+      paragraphs[paragraphs.length - 1] = { text: closing };
+    }
+    const candidate: SectionJson = { ...existing, paragraphs };
+    const validation = {
       allowedIds: ids,
       wordBudget: budgetById.get(updated.sectionId) ?? existing.wordCountEstimate,
       manifest: input.manifest,
       allowUncitedEmpiricalClaims: originalResearchWithFindings,
-    });
-    if (issues.length > 0) {
+    };
+    // Reject an edit that introduces any problem the accepted section did not
+    // already have (unknown citations, uncited or metadata-only claims, length).
+    const baseline = new Set(
+      validateSectionOutput({ section: existing, ...validation }).map(
+        (issue) => issue.code,
+      ),
+    );
+    const introduced = validateSectionOutput({
+      section: candidate,
+      ...validation,
+    }).filter((issue) => !baseline.has(issue.code));
+    if (introduced.length > 0) {
       researchLog({
         requestId: input.requestId,
         operation: "coherence-rejected",
         publicPaperId: input.paper.publicId,
         status: 200,
         durationMs: 0,
-        extra: { sectionId: updated.sectionId, code: issues[0]?.code },
+        extra: { sectionId: updated.sectionId, code: introduced[0]?.code },
       });
       continue;
     }
@@ -533,9 +605,16 @@ export async function handleGenerateNext(input: {
     const pendingSection = paper.sections?.find(
       (section) => section.generationStatus === "pending",
     );
+    const pendingParts = pendingSection?.partsTotal ?? 1;
+    const pendingPartIndex = Math.min(
+      pendingSection?.partsDone ?? 0,
+      pendingParts - 1,
+    );
     const stepId = outlineEmpty
       ? "outline"
-      : pendingSection?.sectionId;
+      : pendingSection
+        ? partStepId(pendingSection.sectionId, pendingPartIndex, pendingParts)
+        : undefined;
     if (!stepId) {
       paper.status = "completed";
       paper.completedAt = now;
@@ -617,10 +696,11 @@ export async function handleGenerateNext(input: {
         assignPaperArray(paper, "outline", outline);
         assignPaperArray(paper, "sections", seedSections(outline));
       } else {
+        const sectionId = pendingSection!.sectionId;
         const sectionIndex = paper.sections.findIndex(
-          (section) => section.sectionId === stepId,
+          (section) => section.sectionId === sectionId,
         );
-        const outlineItem = paper.outline.find((item) => item.sectionId === stepId);
+        const outlineItem = paper.outline.find((item) => item.sectionId === sectionId);
         if (sectionIndex < 0 || !outlineItem) {
           throw new ResearchApiError({
             code: "VALIDATION_FAILED",
@@ -628,7 +708,11 @@ export async function handleGenerateNext(input: {
             requestId,
           });
         }
-        paper.sections[sectionIndex].generationAttempts += 1;
+        const target = paper.sections[sectionIndex];
+        target.generationAttempts += 1;
+        const partsTotal = target.partsTotal ?? 1;
+        const partIndex = Math.min(target.partsDone ?? 0, partsTotal - 1);
+        const soFar = target.contentJson as SectionJson | undefined;
         const { section: sectionJson, softIssues } = await generateSectionJson({
           paper,
           outlineItem: {
@@ -637,8 +721,14 @@ export async function handleGenerateNext(input: {
             title: outlineItem.title,
             order: outlineItem.order,
             arguments: outlineItem.arguments ?? [],
-            wordBudget: outlineItem.wordBudget,
+            wordBudget: partBudget(outlineItem.wordBudget, partIndex, partsTotal),
             plannedRefIds: outlineItem.plannedRefIds ?? [],
+          },
+          part: {
+            index: partIndex,
+            total: partsTotal,
+            previousText:
+              partIndex > 0 && soFar ? continuationText(soFar.paragraphs) : undefined,
           },
           manifest,
           client,
@@ -647,12 +737,20 @@ export async function handleGenerateNext(input: {
           writingTimeoutMs: timeouts.writingMs,
           utilityTimeoutMs: timeouts.utilityMs,
         });
-        paper.sections[sectionIndex].contentJson = sectionJson;
-        paper.sections[sectionIndex].validationWarnings = softIssues;
-        const morePending = paper.sections.some(
-          (section, index) =>
-            index !== sectionIndex && section.generationStatus === "pending",
-        );
+        target.contentJson =
+          partIndex > 0 ? mergeSectionPart(soFar, sectionJson) : sectionJson;
+        target.validationWarnings =
+          partIndex > 0
+            ? [...new Set([...(target.validationWarnings ?? []), ...softIssues])]
+            : softIssues;
+        target.partsTotal = partsTotal;
+        target.partsDone = partIndex + 1;
+        const morePending =
+          partIndex + 1 < partsTotal ||
+          paper.sections.some(
+            (section, index) =>
+              index !== sectionIndex && section.generationStatus === "pending",
+          );
         if (!morePending) {
           await maybeCoherence({
             paper,

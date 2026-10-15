@@ -39,6 +39,9 @@ export function citeSources(manifest: SourceManifestEntry[]): CiteSource[] {
     year: entry.year,
     title: entry.title,
     journal: entry.journal,
+    volume: entry.volume,
+    issue: entry.issue,
+    pages: entry.pages,
     doi: entry.doi,
     contentStatus: entry.contentStatus,
   }));
@@ -89,7 +92,9 @@ export function applyRenderedPaper(
     section.citationHtml = rendered.text;
     section.citedRefIds = collectCitedIds(tokenText);
     section.actualWords = rendered.text.split(/\s+/).filter(Boolean).length;
-    if (tokenText.trim()) {
+    const partsTotal = section.partsTotal ?? 1;
+    const partsDone = section.partsDone ?? partsTotal;
+    if (tokenText.trim() && partsDone >= partsTotal) {
       section.generationStatus = "complete";
     }
     section.lastGeneratedAt = new Date();

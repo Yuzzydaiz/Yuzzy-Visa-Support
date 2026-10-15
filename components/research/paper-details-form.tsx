@@ -194,7 +194,7 @@ export function PaperDetailsForm({
           className="h-11"
         />
         <p id="research-email-help" className="text-xs text-muted-foreground">
-          We send your payment receipt and recovery link to this address.
+          We use this address for your order and payment. Keep the recovery token shown at checkout: it is the only way to reopen your paper from another browser.
         </p>
         <FieldError>{errors.customerEmail}</FieldError>
       </Field>

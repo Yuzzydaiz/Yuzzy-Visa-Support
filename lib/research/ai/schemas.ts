@@ -23,11 +23,15 @@ export const sectionJsonSchema = z.object({
   wordCountEstimate: z.number().int().min(0),
 });
 
+// Coherence edits only the opening and closing paragraph of each section, so
+// the response stays small no matter how long the paper is. An empty string
+// means "leave this paragraph unchanged".
 export const coherenceJsonSchema = z.object({
   sections: z.array(
     z.object({
       sectionId: z.string().min(1),
-      paragraphs: z.array(z.object({ text: z.string().min(1) })).min(1),
+      opening: z.string(),
+      closing: z.string(),
     }),
   ),
 });
@@ -106,9 +110,10 @@ export const coherenceOutputJsonSchema = {
         type: "object",
         properties: {
           sectionId: { type: "string" },
-          paragraphs: { type: "array", items: paragraphSchema, minItems: 1 },
+          opening: { type: "string" },
+          closing: { type: "string" },
         },
-        required: ["sectionId", "paragraphs"],
+        required: ["sectionId", "opening", "closing"],
         additionalProperties: false,
       },
     },

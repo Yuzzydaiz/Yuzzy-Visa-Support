@@ -73,7 +73,7 @@ export const copy = {
       stored:
         "If you check out, we store your email, paper title and focus, author names, reference list, generated draft, payment identifiers from Bachs, and a hashed recovery token. We do not store card numbers.",
       processors:
-        "Drafting uses OpenAI. Payments use Bachs. Data is stored in MongoDB. Source matching uses Crossref and optionally OpenAlex. Recovery email is sent only if EMAIL_API_KEY is configured.",
+        "Drafting uses OpenAI. Payments use Bachs. Data is stored in MongoDB. Source matching uses Crossref and optionally OpenAlex. No recovery email is sent; keep the recovery token shown at checkout.",
       retention:
         "We keep research papers and related orders for 12 months after the last update, then they may be deleted. You can ask us to delete a draft sooner.",
       pricing:

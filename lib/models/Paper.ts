@@ -122,6 +122,10 @@ const SectionSchema = new mongoose.Schema(
     lastGeneratedAt: { type: Date },
     lastEditedAt: { type: Date },
     validationWarnings: { type: [String], default: [] },
+    // Long sections are written in parts. No defaults on purpose: a missing
+    // value means a single-part section, which keeps older papers complete.
+    partsTotal: { type: Number },
+    partsDone: { type: Number },
     checksum: { type: String },
   },
   { _id: false },
@@ -168,6 +172,9 @@ const PaperSchema = new mongoose.Schema(
     regeneration: {
       used: { type: Number, default: 0 },
       limit: { type: Number, default: 3 },
+      // A long-section regeneration in progress, built up part by part and
+      // committed (and counted against the quota) only when every part is done.
+      pending: { type: mongoose.Schema.Types.Mixed },
     },
     editorVersion: { type: Number, default: 0 },
     completedAt: { type: Date },

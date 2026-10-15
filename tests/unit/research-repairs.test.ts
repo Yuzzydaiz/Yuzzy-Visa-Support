@@ -130,11 +130,8 @@ describe("R08 coherence replacements are validated", () => {
               sections: [
                 {
                   sectionId: "abstract",
-                  paragraphs: [
-                    {
-                      text: `${words(110, "")} The sample size was 500 participants with p < 0.05.`,
-                    },
-                  ],
+                  opening: `${words(110, "")} The sample size was 500 participants with p < 0.05.`,
+                  closing: "",
                 },
               ],
             }),

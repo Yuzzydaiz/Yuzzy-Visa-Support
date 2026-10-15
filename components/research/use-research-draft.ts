@@ -4,6 +4,7 @@ import { useCallback, useSyncExternalStore } from "react";
 
 import {
   DRAFT_STORAGE_KEY,
+  IDEMPOTENCY_STORAGE_KEY,
   defaultResearchDraft,
   type ResearchDraft,
 } from "@/lib/research/draft";
@@ -51,6 +52,20 @@ function readStorage(): ResearchDraft {
 function persist(draft: ResearchDraft) {
   memoryDraft = draft;
   window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  emit();
+}
+
+// Called once an order is paid: the draft has become a paper, so the wizard
+// must start empty and the next checkout must not reuse the old order's key.
+export function clearResearchDraft() {
+  memoryDraft = defaultResearchDraft();
+  didReadStorage = true;
+  try {
+    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    window.sessionStorage.removeItem(IDEMPOTENCY_STORAGE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
   emit();
 }
 

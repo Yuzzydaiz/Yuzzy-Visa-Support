@@ -23,13 +23,23 @@ export function sectionSystemPrompt(input: {
   sectionId: string;
   sectionTitle: string;
   wordBudget: number;
+  part?: { index: number; total: number };
 }): string {
+  const part = input.part && input.part.total > 1 ? input.part : undefined;
   return [
     "You draft one academic section as JSON only.",
     `Paper type: ${input.paperType}.`,
     `Section id: ${input.sectionId}. Return this exact sectionId.`,
     `Section: ${input.sectionTitle}.`,
-    `Target about ${input.wordBudget} words of body text.`,
+    part
+      ? `This request writes part ${part.index + 1} of ${part.total} of the section. Target about ${input.wordBudget} words for this part only.`
+      : `Target about ${input.wordBudget} words of body text.`,
+    part && part.index > 0
+      ? "Continue directly from previousText. Do not repeat it, restate the section introduction, or add a heading."
+      : "",
+    part && part.index < part.total - 1
+      ? "Do not conclude the section; later parts continue it."
+      : "",
     "Return exactly: {sectionId,title,paragraphs:[{text}],usedReferenceIds,limitations,wordCountEstimate}.",
     "Cite only with [CITE:ref_01] or [CITE:ref_01;ref_04] using supplied refIds.",
     "Do not invent bibliography strings, DOIs, participants, measurements, or statistics.",
@@ -55,7 +65,9 @@ export function sectionUserPrompt(input: {
   plannedRefIds: string[];
   evidence: string;
   researchContext?: string;
+  part?: { index: number; total: number; previousText?: string };
 }): string {
+  const part = input.part && input.part.total > 1 ? input.part : undefined;
   return JSON.stringify({
     paperTitle: input.title,
     focus: input.focus ?? "",
@@ -65,6 +77,12 @@ export function sectionUserPrompt(input: {
     plannedRefIds: input.plannedRefIds,
     evidence: input.evidence,
     customerResearchContext: input.researchContext ?? "",
+    ...(part
+      ? {
+          part: { number: part.index + 1, of: part.total },
+          previousText: part.previousText ?? "",
+        }
+      : {}),
   });
 }
 

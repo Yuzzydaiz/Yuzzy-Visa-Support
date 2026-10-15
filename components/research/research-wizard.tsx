@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { PaperDetailsForm } from "@/components/research/paper-details-form";
 import { ReferenceInputList } from "@/components/research/reference-input-list";
+import { storeAccessToken } from "@/components/research/recovery-token";
 import { OrderSummary } from "@/components/research/order-summary";
 import { useResearchDraft } from "@/components/research/use-research-draft";
 import { WizardStepper } from "@/components/research/wizard-stepper";
@@ -16,8 +17,11 @@ import {
   getResearchValidationSchemas,
 } from "@/lib/validation/research";
 import {
-  ACCESS_STORAGE_KEY,
-  IDEMPOTENCY_STORAGE_KEY,
+  detailsPayload,
+  idempotencyKeyFor,
+  orderBody,
+} from "@/lib/research/checkout-draft";
+import {
   emptyReference,
   referenceAllowsReview,
   referenceIncludedInOrder,
@@ -36,27 +40,6 @@ function issueMap(error: { issues: Array<{ path: PropertyKey[]; message: string 
   return out;
 }
 
-function detailsPayload(draft: ResearchDraft) {
-  return {
-    title: draft.title,
-    focus: draft.focus,
-    paperType: draft.paperType,
-    authors: draft.authors.map((author) => ({
-      name: author.name,
-      affiliation: author.affiliation,
-      department: author.department,
-      email: author.email,
-      orcid: author.orcid,
-    })),
-    citationStyle: draft.citationStyle,
-    requestedPages: draft.requestedPages,
-    allowAdditionalSources: draft.allowAdditionalSources,
-    researchNotes: draft.researchNotes || undefined,
-    actualMethodology: draft.actualMethodology || undefined,
-    actualFindings: draft.actualFindings || undefined,
-    customerEmail: draft.customerEmail,
-  };
-}
 
 export function ResearchWizard() {
   const { draft, update } = useResearchDraft();
@@ -75,7 +58,17 @@ export function ResearchWizard() {
   const [discovering, setDiscovering] = useState(false);
   const [paying, setPaying] = useState(false);
   const [accessToken, setAccessToken] = useState<string | undefined>();
-  const [checkoutUrl, setCheckoutUrl] = useState<string | undefined>();
+  const [checkout, setCheckout] = useState<
+    { url: string; fingerprint: string } | undefined
+  >();
+  const currentFingerprint = useMemo(
+    () => JSON.stringify(orderBody(draft)),
+    [draft],
+  );
+  // A checkout belongs to the payload it was created for. Once the draft
+  // changes, offer a fresh checkout instead of the stale Bachs link.
+  const checkoutUrl =
+    checkout?.fingerprint === currentFingerprint ? checkout.url : undefined;
 
   function go(step: ActiveWizardStep) {
     update({ step });
@@ -247,46 +240,13 @@ export function ResearchWizard() {
     setPaying(true);
     setSourceError(undefined);
     try {
-      const idempotencyKey =
-        sessionStorage.getItem(IDEMPOTENCY_STORAGE_KEY) ?? crypto.randomUUID();
-      sessionStorage.setItem(IDEMPOTENCY_STORAGE_KEY, idempotencyKey);
+      const body = orderBody(draft);
+      const fingerprint = JSON.stringify(body);
+      const idempotencyKey = idempotencyKeyFor(fingerprint, sessionStorage);
       const response = await fetch("/api/research/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          idempotencyKey,
-          chargedAmountCents: 1,
-          paper: {
-            ...detailsPayload(draft),
-            customerEmail: draft.customerEmail,
-          },
-          references: draft.references.map((reference) => ({
-            id: reference.id,
-            originalInput: reference.originalInput,
-            userProvidedNotes: reference.userProvidedNotes || undefined,
-            verificationStatus:
-              reference.verificationStatus === "verified" ||
-              reference.verificationStatus === "ambiguous" ||
-              reference.verificationStatus === "unverified"
-                ? reference.verificationStatus
-                : "unverified",
-            contentStatus: reference.contentStatus,
-            isSystemAdded: reference.isSystemAdded,
-            isUserKeyReference: reference.isUserKeyReference,
-            selectedByUser: reference.selectedByUser,
-            matched: reference.matched
-              ? {
-                  title: reference.matched.title,
-                  authors: reference.matched.authors,
-                  year: reference.matched.year,
-                  journal: reference.matched.journal,
-                  doi: reference.matched.doi,
-                  url: reference.matched.url,
-                  abstract: reference.matched.abstract,
-                }
-              : undefined,
-          })),
-        }),
+        body: JSON.stringify({ idempotencyKey, ...body }),
       });
       const payload = (await response.json()) as {
         message?: string;
@@ -300,17 +260,14 @@ export function ResearchWizard() {
         return;
       }
       if (payload.accessToken && payload.paperPublicId && payload.orderPublicId) {
-        sessionStorage.setItem(
-          ACCESS_STORAGE_KEY,
-          JSON.stringify({
-            token: payload.accessToken,
-            paperPublicId: payload.paperPublicId,
-            orderPublicId: payload.orderPublicId,
-          }),
-        );
+        storeAccessToken({
+          token: payload.accessToken,
+          paperPublicId: payload.paperPublicId,
+          orderPublicId: payload.orderPublicId,
+        });
         setAccessToken(payload.accessToken);
       }
-      setCheckoutUrl(payload.checkoutUrl);
+      setCheckout({ url: payload.checkoutUrl, fingerprint });
       setLiveMessage("Checkout created. Save your recovery token.");
     } catch {
       setSourceError("Checkout failed. Try again.");

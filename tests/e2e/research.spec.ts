@@ -133,11 +133,18 @@ test("ambiguous resolve requires a candidate pick", async ({ page }) => {
 
   await visit(page, "/research");
   await expect(page.getByText("Explore mode is on", { exact: false })).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "Draft steps" })
-    .getByRole("button", { name: "References", exact: true })
-    .click();
-  await expect(page.getByRole("heading", { name: "Key references" })).toBeVisible();
+  // visit() returns at DOMContentLoaded, before React hydrates; a click on the
+  // server-rendered step button can land before its handler is attached.
+  // Retry the click until the step actually changes.
+  await expect(async () => {
+    await page
+      .getByRole("navigation", { name: "Draft steps" })
+      .getByRole("button", { name: "References", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { name: "Key references" })).toBeVisible({
+      timeout: 1000,
+    });
+  }).toPass({ timeout: 15_000 });
   await page.getByLabel("DOI, URL, or citation").fill("Smith climate 2020");
   await page.getByRole("button", { name: "Match sources" }).click();
   await expect(page.getByRole("button", { name: /Climate paper one/ })).toBeVisible();

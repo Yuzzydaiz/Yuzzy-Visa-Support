@@ -1,7 +1,18 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 
-export const Citation = Node.create({
+export type CitationOptions = {
+  // Turns stored reference ids into the reader-facing in-text citation, e.g.
+  // "(Smith, 2020)" or "[3]". Ids are internal and never shown as-is.
+  formatLabel: (refIds: string[]) => string;
+};
+
+export const Citation = Node.create<CitationOptions>({
   name: "citation",
+  addOptions() {
+    return {
+      formatLabel: (refIds) => (refIds.length ? "[citation]" : ""),
+    };
+  },
   group: "inline",
   inline: true,
   atom: true,
@@ -26,7 +37,7 @@ export const Citation = Node.create({
   },
   renderHTML({ node, HTMLAttributes }) {
     const ids = (node.attrs.refIds as string[] | undefined) ?? [];
-    const label = `[${ids.join("; ")}]`;
+    const label = this.options.formatLabel(ids);
     return [
       "span",
       mergeAttributes(HTMLAttributes, {
