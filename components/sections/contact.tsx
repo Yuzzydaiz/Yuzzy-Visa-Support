@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { copy } from "@/lib/copy";
 import { getFormspreeFormId } from "@/lib/site";
 
-type VisaCategory = "EB1A" | "O1" | "EB2_NIW";
+type VisaCategory = "EB1A" | "O1" | "EB2_NIW" | "UK_GT";
 
 export function Contact() {
   return (
