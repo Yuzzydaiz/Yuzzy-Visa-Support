@@ -314,12 +314,34 @@ export function parseCheckoutConfig(
   };
 }
 
+// Describes a malformed MONGODB_URI without revealing it (it holds the
+// database password), so a paste mistake in the host's settings can be
+// diagnosed from the logs.
+function describeMongoUri(value: string): string {
+  const facts = [
+    `length ${value.length}`,
+    /^["'`]/.test(value) ? "starts with a quote" : "",
+    /^[A-Z_]+=/.test(value) ? "starts with a variable name and =" : "",
+    /^mongosh\b/.test(value) ? "is a mongosh command" : "",
+    /mongodb(\+srv)?:\/\//.test(value)
+      ? `contains a mongodb scheme at position ${value.search(/mongodb(\+srv)?:\/\//)}`
+      : "contains no mongodb scheme",
+    /<db_(username|password)>/.test(value) ? "still has <db_username>/<db_password> placeholders" : "",
+  ];
+  return facts.filter(Boolean).join(", ");
+}
+
 export function parseMongoConfig(
   env: Record<string, string | undefined> = process.env,
 ): { mongodbUri: string } {
   const mongodbUri = env.MONGODB_URI?.trim();
   if (!mongodbUri) {
     throw new Error("Missing required server configuration: MONGODB_URI");
+  }
+  if (!/^mongodb(\+srv)?:\/\//.test(mongodbUri) || /<db_(username|password)>/.test(mongodbUri)) {
+    throw new Error(
+      `Invalid server configuration: MONGODB_URI must be the driver connection string (mongodb+srv://user:password@host/db); the configured value ${describeMongoUri(mongodbUri)}`,
+    );
   }
   return { mongodbUri };
 }

@@ -201,3 +201,34 @@ describe("generation lease budget", () => {
     expect(lease).toBeGreaterThan(2 * timeouts.writingMs + 4 * timeouts.utilityMs);
   });
 });
+
+describe("MONGODB_URI validation", () => {
+  it("rejects a pasted value without revealing it", async () => {
+    const { parseMongoConfig } = await import("@/lib/config/research");
+    const secret = "s3cretPass";
+    for (const value of [
+      `"mongodb+srv://app:${secret}@cluster0.x.mongodb.net/db"`,
+      `MONGODB_URI=mongodb+srv://app:${secret}@cluster0.x.mongodb.net/db`,
+      "mongodb+srv://<db_username>:<db_password>@cluster0.x.mongodb.net/",
+    ]) {
+      let message = "";
+      try {
+        parseMongoConfig({ MONGODB_URI: value });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/Invalid server configuration: MONGODB_URI/);
+      expect(message).not.toContain(secret);
+      expect(message).not.toContain("cluster0");
+    }
+  });
+
+  it("accepts a driver connection string", async () => {
+    const { parseMongoConfig } = await import("@/lib/config/research");
+    expect(
+      parseMongoConfig({
+        MONGODB_URI: "mongodb+srv://app:pw@cluster0.x.mongodb.net/db?retryWrites=true",
+      }).mongodbUri,
+    ).toMatch(/^mongodb\+srv:/);
+  });
+});
