@@ -23,6 +23,7 @@ export default defineConfig({
     env: {
       ...process.env,
       NEXT_PUBLIC_RESEARCH_WIZARD_STRICT: "false",
+      NEXT_PUBLIC_RESEARCH_PUBLIC: "true",
     },
   },
   projects: [

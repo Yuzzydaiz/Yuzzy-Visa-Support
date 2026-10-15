@@ -23,6 +23,13 @@ export function getFormspreeFormId(): string {
   return process.env.NEXT_PUBLIC_FORMSPREE_ID?.trim() || DEFAULT_FORMSPREE_ID;
 }
 
+// The research writer is reachable by direct link for testing, but its
+// homepage, footer, and sitemap entry points appear only once it is launched
+// (NEXT_PUBLIC_RESEARCH_PUBLIC=true, set together with the live Bachs keys).
+export function isResearchPublic(): boolean {
+  return process.env.NEXT_PUBLIC_RESEARCH_PUBLIC?.trim().toLowerCase() === "true";
+}
+
 export function getMetadata() {
   return {
     title: copy.meta.title,

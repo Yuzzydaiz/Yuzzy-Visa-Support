@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 
 import { ResearchWizard } from "@/components/research/research-wizard";
 import { copy } from "@/lib/copy";
+import { isResearchPublic } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Research paper draft",
   description: copy.research.intro,
+  // Keep the pre-launch (sandbox) writer out of search results.
+  ...(isResearchPublic() ? {} : { robots: { index: false, follow: false } }),
 };
 
 export default function ResearchPage() {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookCta } from "@/components/book-cta";
 import { copy } from "@/lib/copy";
 import { navItems } from "@/lib/navigation";
+import { isResearchPublic } from "@/lib/site";
 
 function LinkedInMark({ className }: { className?: string }) {
   return (
@@ -73,22 +74,26 @@ export function SiteFooter() {
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link
-                  href="/research"
-                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
-                >
-                  Research draft
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/research/privacy"
-                  className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
-                >
-                  {copy.footer.researchPrivacy}
-                </Link>
-              </li>
+              {isResearchPublic() ? (
+                <>
+                  <li>
+                    <Link
+                      href="/research"
+                      className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
+                    >
+                      Research draft
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/research/privacy"
+                      className="text-sm font-medium text-foreground/80 transition-colors hover:text-brand-navy"
+                    >
+                      {copy.footer.researchPrivacy}
+                    </Link>
+                  </li>
+                </>
+              ) : null}
             </ul>
           </nav>
 

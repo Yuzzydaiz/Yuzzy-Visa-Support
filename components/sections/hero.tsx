@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookCta } from "@/components/book-cta";
 import { Button } from "@/components/ui/button";
 import { copy } from "@/lib/copy";
+import { isResearchPublic } from "@/lib/site";
 
 export function Hero() {
   return (
@@ -37,14 +38,16 @@ export function Hero() {
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <BookCta className="h-12 rounded-xl px-6 shadow-md shadow-brand-navy/15 transition-all hover:bg-primary/90 hover:shadow-lg" />
-              <Button
-                nativeButton={false}
-                variant="outline"
-                render={<Link href="/research" />}
-                className="h-12 rounded-xl border-brand-navy/20 bg-brand-white px-6 text-sm font-medium text-brand-navy shadow-sm hover:bg-muted"
-              >
-                {copy.hero.researchCta}
-              </Button>
+              {isResearchPublic() ? (
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  render={<Link href="/research" />}
+                  className="h-12 rounded-xl border-brand-navy/20 bg-brand-white px-6 text-sm font-medium text-brand-navy shadow-sm hover:bg-muted"
+                >
+                  {copy.hero.researchCta}
+                </Button>
+              ) : null}
             </div>
             <dl className="grid grid-cols-1 gap-4 border-t border-brand-navy/10 pt-6 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-brand-navy/10">
               {copy.hero.stats.map((stat) => (

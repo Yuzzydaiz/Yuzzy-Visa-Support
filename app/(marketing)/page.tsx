@@ -9,7 +9,7 @@ import { Faqs } from "@/components/sections/faqs";
 import { Contact } from "@/components/sections/contact";
 import { Subscribe } from "@/components/sections/subscribe";
 import { copy } from "@/lib/copy";
-import { getSiteUrl } from "@/lib/site";
+import { getSiteUrl, isResearchPublic } from "@/lib/site";
 
 function JsonLd() {
   const data = {
@@ -35,7 +35,7 @@ export default function HomePage() {
       <JsonLd />
       <Hero />
       <TrustChips />
-      <ResearchAssistant />
+      {isResearchPublic() ? <ResearchAssistant /> : null}
       <Services />
       <HowWeWork />
       <About />
