@@ -7,6 +7,8 @@ const EXTRA_ALLOW = new Set([
   "alreadyPaid",
   "verificationStatus",
   "matchedCount",
+  "provider",
+  "reason",
 ]);
 
 const BLOCKED = new Set([
@@ -44,6 +46,29 @@ export function sanitizeResearchLogExtra(
     next[key] = value;
   }
   return Object.keys(next).length ? next : undefined;
+}
+
+// A short, input-free description of a failure: provider and timeout errors
+// carry status codes, not customer text. Page fetch errors can echo the
+// customer's URL, so only their type is kept.
+export function failureReason(error: unknown, provider?: string): string {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+  return provider === "page" ? error.name : error.message.slice(0, 200);
+}
+
+// Logs a provider failure that resolution recovered from, so a degraded
+// Crossref or OpenAlex shows up in the logs instead of only as fewer matches.
+export function providerErrorLogger(requestId: string, operation: string) {
+  return (provider: string, error: unknown) =>
+    researchLog({
+      requestId,
+      operation: `${operation}-provider-error`,
+      status: "degraded",
+      durationMs: 0,
+      extra: { provider, reason: failureReason(error, provider) },
+    });
 }
 
 export function researchLog(input: ResearchLogInput) {

@@ -12,7 +12,7 @@ import {
   researchErrorBody,
 } from "@/lib/research/http/errors";
 import { consumeResearchRateLimit } from "@/lib/research/http/rateLimit";
-import { researchLog } from "@/lib/research/http/log";
+import { providerErrorLogger, researchLog } from "@/lib/research/http/log";
 import { createBachsClient, type BachsClient } from "@/lib/research/payments/bachs";
 import { createMongoOrderStore, type OrderStore } from "@/lib/research/orders/store";
 import { createCrossrefClient } from "@/lib/research/references/crossref";
@@ -95,6 +95,7 @@ export async function handleCreateOrder(input: {
             email: lookup!.crossrefContactEmail,
             apiKey: lookup!.openalexApiKey,
           }),
+          onProviderError: providerErrorLogger(requestId, "orders-checkout"),
         });
     const serverVerified = selected.map((reference, index) => {
       const server = resolved[index];

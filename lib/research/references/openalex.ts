@@ -107,7 +107,10 @@ export function createOpenAlexClient(input: {
   }
 
   async function search(query: string, minLength: number) {
-    const trimmed = query.trim();
+    // OpenAlex reads ? and * as wildcards and rejects the whole search (400)
+    // when they appear in a stemmed query, so a citation such as "Can
+    // language models be too big?" would fail. They carry no meaning here.
+    const trimmed = query.replace(/[?*]/g, " ").replace(/\s+/g, " ").trim();
     if (trimmed.length < minLength) {
       return [];
     }

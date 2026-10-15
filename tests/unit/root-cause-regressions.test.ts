@@ -14,7 +14,12 @@ import { handleRegenerateSection } from "@/lib/research/generation/regenerate";
 import { resetResolveRateLimit } from "@/lib/research/http/rateLimitStub";
 import { handleCreateOrder } from "@/lib/research/orders/http";
 import type { OrderStore } from "@/lib/research/orders/store";
-import type { ResolveInput } from "@/lib/research/references/resolve";
+import { createOpenAlexClient } from "@/lib/research/references/openalex";
+import {
+  ReferenceProvidersUnavailableError,
+  resolveReferences,
+  type ResolveInput,
+} from "@/lib/research/references/resolve";
 import type { CanonicalWork } from "@/lib/research/references/types";
 import type { PaperDocument } from "@/lib/models/Paper";
 
@@ -708,5 +713,89 @@ describe("regenerating a long section", () => {
     expect(paragraphs).toHaveLength(12);
     expect(paragraphs[0]!.text.startsWith("new1")).toBe(true);
     expect(paragraphs[11]!.text.startsWith("new3")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reference matching survives one provider failing (found in the production
+// sandbox test: a "?" in a citation made OpenAlex return 400, which failed
+// matching for every source in the request)
+// ---------------------------------------------------------------------------
+
+describe("reference matching resilience", () => {
+  const bender = work({
+    title: "On the Dangers of Stochastic Parrots: Can Language Models Be Too Big?",
+    authors: ["Emily M. Bender", "Timnit Gebru"],
+    year: 2021,
+    doi: "10.1145/3442188.3445922",
+  });
+  const citation =
+    "Bender, E. M., Gebru, T. (2021). On the dangers of stochastic parrots: Can language models be too big?";
+
+  it("strips OpenAlex wildcard characters from free-text searches", async () => {
+    const urls: string[] = [];
+    const client = createOpenAlexClient({
+      email: "ops@example.com",
+      fetchImpl: (async (url: string) => {
+        urls.push(url);
+        return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      }) as unknown as typeof fetch,
+    });
+    await client.searchTitle("Can language models be too big? Or *every* model");
+    const search = new URL(urls[0]!).searchParams.get("search");
+    expect(search).toBe("Can language models be too big Or every model");
+  });
+
+  it("still verifies from Crossref when OpenAlex fails", async () => {
+    const failures: string[] = [];
+    const [result] = await resolveReferences([{ id: "r1", originalInput: citation }], {
+      crossref: {
+        lookupDoi: async () => undefined,
+        searchBibliographic: async () => [bender],
+      },
+      openalex: {
+        lookupDoi: async () => undefined,
+        searchTitle: async () => {
+          throw new Error("OpenAlex request failed (400)");
+        },
+        searchWorks: async () => [],
+      },
+      onProviderError: (provider) => failures.push(provider),
+    });
+    expect(result!.verificationStatus).toBe("verified");
+    expect(result!.matched?.doi).toBe("10.1145/3442188.3445922");
+    expect(failures).toEqual(["openalex"]);
+  });
+
+  it("falls back to OpenAlex for a DOI when Crossref is down", async () => {
+    const [result] = await resolveReferences(
+      [{ id: "r1", originalInput: "10.1145/3442188.3445922" }],
+      {
+        crossref: {
+          lookupDoi: async () => {
+            throw new Error("Crossref request failed (503)");
+          },
+          searchBibliographic: async () => [],
+        },
+        openalex: {
+          lookupDoi: async () => ({ ...bender, provider: "openalex" as const }),
+          searchTitle: async () => [],
+          searchWorks: async () => [],
+        },
+      },
+    );
+    expect(result!.verificationStatus).toBe("verified");
+  });
+
+  it("reports a retryable error, not 'unverified', when every provider fails", async () => {
+    const down = async () => {
+      throw new Error("network down");
+    };
+    await expect(
+      resolveReferences([{ id: "r1", originalInput: citation }], {
+        crossref: { lookupDoi: down, searchBibliographic: down },
+        openalex: { lookupDoi: down, searchTitle: down, searchWorks: down },
+      }),
+    ).rejects.toBeInstanceOf(ReferenceProvidersUnavailableError);
   });
 });

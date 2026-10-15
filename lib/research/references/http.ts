@@ -14,7 +14,11 @@ import {
   researchErrorBody,
 } from "@/lib/research/http/errors";
 import { consumeResearchRateLimit } from "@/lib/research/http/rateLimit";
-import { researchLog } from "@/lib/research/http/log";
+import {
+  failureReason,
+  providerErrorLogger,
+  researchLog,
+} from "@/lib/research/http/log";
 import { createResolveRequestSchema } from "@/lib/validation/research";
 import { SsrfBlockedError } from "@/lib/research/security/safe-fetch";
 
@@ -88,6 +92,7 @@ export const handleReferenceResolve: ResolveHandler = async ({
         email: lookup.crossrefContactEmail,
         apiKey: lookup.openalexApiKey,
       }),
+      onProviderError: providerErrorLogger(requestId, "references-resolve"),
     });
 
     researchLog({
@@ -132,6 +137,13 @@ export const handleReferenceResolve: ResolveHandler = async ({
       code: "GENERATION_RETRYABLE",
       message: "Matching is temporarily unavailable. Try again.",
       requestId,
+    });
+    researchLog({
+      requestId,
+      operation: "references-resolve",
+      status: failed.status,
+      durationMs: Date.now() - started,
+      extra: { code: failed.code, reason: failureReason(error) },
     });
     return { status: failed.status, body: researchErrorBody(failed) };
   }

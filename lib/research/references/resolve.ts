@@ -32,7 +32,56 @@ export type ResolveDeps = {
   crossref: CrossrefClient;
   openalex: OpenAlexClient;
   fetchPage?: typeof safeFetch;
+  // Called when one provider call fails but resolution continues without it.
+  onProviderError?: (provider: string, error: unknown) => void;
 };
+
+// Every lookup for one reference failed (for example both providers are
+// down), so "unverified" would be a false verdict. Callers report it as
+// retryable instead.
+export class ReferenceProvidersUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(
+      `Reference providers unavailable: ${
+        cause instanceof Error ? cause.message : "unknown error"
+      }`,
+    );
+    this.name = "ReferenceProvidersUnavailableError";
+  }
+}
+
+// Crossref, OpenAlex, and the page fetch are independent sources of
+// candidates. One failing must not fail the reference, let alone the whole
+// batch: its candidates are simply missing. Only when every call failed is
+// the reference left unresolved as a retryable error.
+function providerTracker(deps: ResolveDeps) {
+  let calls = 0;
+  let failures = 0;
+  let firstError: unknown;
+  return {
+    async attempt<T>(provider: string, run: () => Promise<T>, fallback: T): Promise<T> {
+      calls += 1;
+      try {
+        return await run();
+      } catch (error) {
+        if (error instanceof SsrfBlockedError) {
+          throw error;
+        }
+        failures += 1;
+        firstError ??= error;
+        deps.onProviderError?.(provider, error);
+        return fallback;
+      }
+    },
+    assertAnySucceeded() {
+      if (calls > 0 && failures === calls) {
+        throw new ReferenceProvidersUnavailableError(firstError);
+      }
+    },
+  };
+}
+
+type ProviderTracker = ReturnType<typeof providerTracker>;
 
 function contentStatusFor(
   work: CanonicalWork | undefined,
@@ -87,13 +136,22 @@ function extractDoiFromHtml(html: string): string | undefined {
 async function collectForDoi(
   doi: string,
   deps: ResolveDeps,
+  providers: ProviderTracker,
 ): Promise<CanonicalWork[]> {
   const works: CanonicalWork[] = [];
-  const crossref = await deps.crossref.lookupDoi(doi);
+  const crossref = await providers.attempt(
+    "crossref",
+    () => deps.crossref.lookupDoi(doi),
+    undefined,
+  );
   if (crossref) {
     works.push(crossref);
   } else {
-    const openalex = await deps.openalex.lookupDoi(doi);
+    const openalex = await providers.attempt(
+      "openalex",
+      () => deps.openalex.lookupDoi(doi),
+      undefined,
+    );
     if (openalex) {
       works.push(openalex);
     }
@@ -111,31 +169,44 @@ export async function resolveOne(
   let candidates: CanonicalWork[] = [];
   let doi = extractDoiFromText(originalInput);
   const citationHints = hintsFromCitation(originalInput);
+  const providers = providerTracker(deps);
+  const search = async (query: string) => [
+    ...(await providers.attempt(
+      "crossref",
+      () => deps.crossref.searchBibliographic(query),
+      [] as CanonicalWork[],
+    )),
+    ...(await providers.attempt(
+      "openalex",
+      () => deps.openalex.searchTitle(query),
+      [] as CanonicalWork[],
+    )),
+  ];
 
   try {
     if (inputType === "url" && !doi) {
-      const page = await (deps.fetchPage ?? safeFetch)(originalInput);
-      doi = extractDoiFromHtml(page.body);
-      if (!doi) {
-        const titleMatch = page.body.match(/<title>([^<]+)<\/title>/i);
-        if (titleMatch?.[1]) {
-          candidates = [
-            ...(await deps.crossref.searchBibliographic(titleMatch[1])),
-            ...(await deps.openalex.searchTitle(titleMatch[1])),
-          ];
+      const page = await providers.attempt(
+        "page",
+        () => (deps.fetchPage ?? safeFetch)(originalInput),
+        undefined,
+      );
+      if (page) {
+        doi = extractDoiFromHtml(page.body);
+        if (!doi) {
+          const titleMatch = page.body.match(/<title>([^<]+)<\/title>/i);
+          if (titleMatch?.[1]) {
+            candidates = await search(titleMatch[1]);
+          }
         }
       }
     }
 
     if (doi) {
-      candidates = [...candidates, ...(await collectForDoi(doi, deps))];
+      candidates = [...candidates, ...(await collectForDoi(doi, deps, providers))];
     } else if (inputType === "citation" || inputType === "url") {
-      candidates = [
-        ...candidates,
-        ...(await deps.crossref.searchBibliographic(originalInput)),
-        ...(await deps.openalex.searchTitle(originalInput)),
-      ];
+      candidates = [...candidates, ...(await search(originalInput))];
     }
+    providers.assertAnySucceeded();
   } catch (error) {
     if (error instanceof SsrfBlockedError) {
       return {
