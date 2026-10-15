@@ -799,3 +799,61 @@ describe("reference matching resilience", () => {
     ).rejects.toBeInstanceOf(ReferenceProvidersUnavailableError);
   });
 });
+
+// Real Crossref results for a full APA citation (production sandbox test,
+// 2026-10-15). The right paper only scored 0.18 on plain word overlap,
+// because the citation also contains authors, year, and venue.
+describe("matching a full citation", () => {
+  const apa =
+    "Bender, E. M., Gebru, T., McMillan-Major, A., & Shmitchell, S. (2021). On the dangers of stochastic parrots: Can language models be too big? Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency.";
+  const paper = work({
+    title: "On the Dangers of Stochastic Parrots",
+    authors: ["Emily M. Bender", "Timnit Gebru"],
+    year: 2021,
+    doi: "10.1145/3442188.3445922",
+  });
+  const proceedings = work({
+    title:
+      "Proceedings of the 2021 ACM Conference on Fairness, Accountability, and Transparency",
+    authors: [],
+    year: 2021,
+    doi: "10.1145/3442188",
+  });
+  const other = work({
+    title: "Group Fairness",
+    authors: ["Michele Räz"],
+    year: 2021,
+    doi: "10.1145/3442188.3445876",
+  });
+
+  function deps(results: CanonicalWork[]) {
+    return {
+      crossref: {
+        lookupDoi: async () => undefined,
+        searchBibliographic: async () => results,
+      },
+      openalex: {
+        lookupDoi: async () => undefined,
+        searchTitle: async () => [],
+        searchWorks: async () => [],
+      },
+    };
+  }
+
+  it("verifies the paper, not the proceedings volume it appeared in", async () => {
+    const [result] = await resolveReferences(
+      [{ id: "r1", originalInput: apa }],
+      deps([paper, proceedings, other]),
+    );
+    expect(result!.verificationStatus).toBe("verified");
+    expect(result!.matched?.doi).toBe("10.1145/3442188.3445922");
+  });
+
+  it("does not verify a contained title when the named author disagrees", async () => {
+    const [result] = await resolveReferences(
+      [{ id: "r1", originalInput: apa }],
+      deps([{ ...paper, authors: ["Someone Else"], doi: "10.1000/impostor" }]),
+    );
+    expect(result!.verificationStatus).not.toBe("verified");
+  });
+});

@@ -31,6 +31,39 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return overlap / new Set([...a, ...b]).size;
 }
 
+// Share of the candidate's title words that appear in the input.
+function containment(input: Set<string>, title: Set<string>): number {
+  if (!title.size) {
+    return 0;
+  }
+  let found = 0;
+  for (const token of title) {
+    if (input.has(token)) {
+      found += 1;
+    }
+  }
+  return found / title.size;
+}
+
+// A full citation ("Bender, E. M. ... (2021). On the dangers of stochastic
+// parrots ... Proceedings of ...") contains the title plus authors, venue,
+// and year, so plain overlap scores the right paper low (0.18 for that
+// example). Containment measures whether the title appears in the citation.
+// It is weighted so it verifies only with the author or year also agreeing:
+// a proceedings volume whose title is also contained, but which has no
+// authors, then ranks clearly below the paper. Short titles ("Deep
+// learning") appear inside too many citations to count this way.
+const CONTAINMENT_WEIGHT = 0.7;
+const CONTAINMENT_MIN_TITLE_TOKENS = 4;
+
+function titleSimilarity(input: Set<string>, title: Set<string>): number {
+  const overlap = jaccard(input, title);
+  if (title.size < CONTAINMENT_MIN_TITLE_TOKENS) {
+    return overlap;
+  }
+  return Math.max(overlap, containment(input, title) * CONTAINMENT_WEIGHT);
+}
+
 export function scoreCandidate(
   input: { titleHint?: string; yearHint?: number; authorHint?: string; doi?: string },
   candidate: CanonicalWork,
@@ -40,7 +73,7 @@ export function scoreCandidate(
   }
 
   const titleScore = input.titleHint
-    ? jaccard(tokenSet(input.titleHint), tokenSet(candidate.title))
+    ? titleSimilarity(tokenSet(input.titleHint), tokenSet(candidate.title))
     : 0;
   const yearConflict =
     input.yearHint &&
