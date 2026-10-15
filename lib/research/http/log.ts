@@ -9,6 +9,7 @@ const EXTRA_ALLOW = new Set([
   "matchedCount",
   "provider",
   "reason",
+  "stage",
 ]);
 
 const BLOCKED = new Set([

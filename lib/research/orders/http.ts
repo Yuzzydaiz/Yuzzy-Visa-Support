@@ -12,7 +12,11 @@ import {
   researchErrorBody,
 } from "@/lib/research/http/errors";
 import { consumeResearchRateLimit } from "@/lib/research/http/rateLimit";
-import { providerErrorLogger, researchLog } from "@/lib/research/http/log";
+import {
+  failureReason,
+  providerErrorLogger,
+  researchLog,
+} from "@/lib/research/http/log";
 import { createBachsClient, type BachsClient } from "@/lib/research/payments/bachs";
 import { createMongoOrderStore, type OrderStore } from "@/lib/research/orders/store";
 import { createCrossrefClient } from "@/lib/research/references/crossref";
@@ -275,6 +279,19 @@ export async function handleCreateOrder(input: {
       code: "GENERATION_RETRYABLE",
       message: "Checkout is temporarily unavailable. Try again.",
       requestId,
+    });
+    researchLog({
+      requestId,
+      operation: "orders-checkout",
+      publicPaperId: paperPublicId,
+      publicOrderId: orderPublicId,
+      status: failed.status,
+      durationMs: Date.now() - started,
+      extra: {
+        code: failed.code,
+        stage: persistedBeforeBachs ? "bachs" : "database",
+        reason: failureReason(error),
+      },
     });
     return {
       status: failed.status,

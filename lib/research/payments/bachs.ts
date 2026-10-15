@@ -20,6 +20,15 @@ export type CreateBachsCheckoutInput = {
   fetchImpl?: typeof fetch;
 };
 
+async function errorDetail(response: Response): Promise<string> {
+  try {
+    const text = (await response.text()).replace(/\s+/g, " ").trim();
+    return text ? `: ${text.slice(0, 200)}` : "";
+  } catch {
+    return "";
+  }
+}
+
 export function createBachsClient(input: {
   apiKey: string;
   apiBaseUrl: string;
@@ -59,7 +68,11 @@ export function createBachsClient(input: {
         }),
       });
       if (!response.ok) {
-        throw new Error(`Bachs checkout failed (${response.status})`);
+        // Bachs explains rejections in the body (for example "success_url
+        // must be a publicly accessible URL"); keep that for the logs.
+        throw new Error(
+          `Bachs checkout failed (${response.status})${await errorDetail(response)}`,
+        );
       }
       const json = (await response.json()) as {
         checkout_id?: string;
