@@ -184,12 +184,6 @@ export const copy = {
         alt: "Client review screenshot from varun961 describing professional and responsive service.",
       },
       {
-        src: "/reviews/ppmm14-review.jpeg",
-        width: 907,
-        height: 303,
-        alt: "Client review screenshot from ppmm14 describing detailed scholarly support.",
-      },
-      {
         src: "/reviews/helloswapnil-review.jpeg",
         width: 909,
         height: 393,
