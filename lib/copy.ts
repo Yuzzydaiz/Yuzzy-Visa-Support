@@ -207,12 +207,6 @@ export const copy = {
         height: 836,
         alt: "WhatsApp conversation screenshot about completed professional references.",
       },
-      {
-        src: "/reviews/whatsapp-services-review.jpeg",
-        width: 960,
-        height: 1280,
-        alt: "WhatsApp conversation screenshot about profile building services.",
-      },
     ],
   },
   faqs: {
