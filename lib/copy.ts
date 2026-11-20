@@ -219,12 +219,6 @@ export const copy = {
         height: 1280,
         alt: "WhatsApp conversation screenshot about profile building services.",
       },
-      {
-        src: "/reviews/whatsapp-payment-review.jpeg",
-        width: 814,
-        height: 1280,
-        alt: "WhatsApp conversation screenshot about a payment and peer review support.",
-      },
     ],
   },
   faqs: {
